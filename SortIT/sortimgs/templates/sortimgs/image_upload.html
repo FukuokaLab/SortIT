@@ -1,0 +1,213 @@
+
+{% extends 'base.html' %}
+
+{% load static %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" id="upload-form">
+  {% csrf_token %}
+  <div class="form-group m-3">
+	  <h3>Upload to {{ image_set.name }}</h3>
+  </div>
+  <div class="m-3">
+    <div class="m-2">
+      <input type="file" name="image" id="image" multiple webkitdirectory>
+    </div>
+
+    <div class="m-2">
+      <div class="dropzone" id="dropzone" style="border: 2px dashed #000000;padding: 70px;margin: 15px;font-size: 22px;color: #000000;background-color: #ffffff;text-align: center;">Drop files or folder here</div>
+    </div>
+
+    <div class="m-2">
+      <button type="button" id="clear-button" class="btn btn-outline-secondary">Clear</button>
+      <button type="submit" id="upload-button" class="btn btn-primary">Upload</button>
+    </div>
+
+    <div class="m-2">
+      * supported browser: Chrome/Edge
+    </div>
+
+
+  </form>
+  <div id="progress-container" hidden>
+    <progress id="progress-bar" value="0" max="100"></progress>
+    <span id="status"></span>
+  </div>
+  </div>
+
+
+
+<script type="text/javascript">
+  
+  var dropzone = document.getElementById("dropzone");
+  var image = document.getElementById("image");
+  var uploadButton = document.getElementById("upload-button");
+  var uploadForm = document.getElementById("upload-form");
+  var progressBar = document.getElementById("progress-bar");
+  var status = document.getElementById("status");
+  var progressContainer = document.getElementById("progress-container");
+  var clearButton = document.getElementById("clear-button");
+
+  dropzone.ondragover = function (e) {
+    e.preventDefault();
+    this.style.backgroundColor = '#b3e6ff';
+    this.className = "dropzone dragover";
+    return false;
+  };
+
+
+  dropzone.ondragleave = function (e) {
+    e.preventDefault();
+    this.className = "dropzone";
+    this.style.backgroundColor = '';
+    return false;
+  };
+
+// Whan fille dropped...
+dropzone.ondrop = async (e) => {
+
+  e.preventDefault();
+
+  this.className = "dropzone";
+
+  var items = e.dataTransfer.items; // get dropped items
+  var newFileList = new DataTransfer();
+  var imageCount = 0;
+
+  for (var i = 0; i < image.files.length; i++) {
+    newFileList.items.add(image.files[i]);
+    imageCount++;
+  }
+
+  // check if the files are images
+  var imageRegex = /^image\/(png|jpg|jpeg)$/;
+
+  var addFileIfUnique = (file) => {
+    var itemsArray = Array.from(newFileList.items);
+    var isDuplicate = itemsArray.some((item) => item.getAsFile().name == file.name);
+    if (!isDuplicate) {
+      newFileList.items.add(file);
+      imageCount++;
+    }
+  };
+  for (var item of items) {
+    var file = item.getAsFile();
+    if (imageRegex.test(file.type)) {
+      addFileIfUnique(file);
+    } 
+    else if (file.type == "") {
+      var entry = item.webkitGetAsEntry();
+
+      async function getEntries(folder) {
+        var reader = folder.createReader();
+        var entries = [];
+        while (true) {
+          try {
+            var results = await new Promise((resolve, reject) => {
+              reader.readEntries(resolve, reject);
+            });
+            if (results.length) {
+              entries = entries.concat(results);
+            } else {
+              break;
+            }
+          } catch (error) {
+            console.log(error);
+            throw error;
+          }
+        }
+        return entries;
+      }
+
+      async function addFolderImages(folder) {
+        for (var entry of folder) {
+          if (entry.isFile) {
+            var file = await new Promise((resolve, reject) => {
+              entry.file(resolve, reject);
+            });
+            if (imageRegex.test(file.type)) {
+              addFileIfUnique(file);
+            }
+          }
+          // recursively
+          else if (entry.isDirectory) {
+            var subfolder = await getEntries(entry);
+            await addFolderImages(subfolder);
+          }
+        }
+      }
+      try {
+        var folder = await getEntries(entry);
+        await addFolderImages(folder);
+      } catch (error) {
+        console.error(error);
+      }
+    } 
+    else {
+      alert("Please drop only image files or folders.");
+    }
+  }
+  console.log(newFileList)
+  image.files = newFileList.files;
+  dropzone.style.backgroundColor = "";
+  console.log("Number of images: " + imageCount);
+};
+
+
+
+// Push SUBMIT button
+  uploadButton.onclick = function (e) {
+    e.preventDefault();
+
+    // if some file specified
+    if (image.files.length > 0) {
+      var formData = new FormData(uploadForm);
+      var xhr = new XMLHttpRequest();
+      
+      // reveal progress container
+      progressContainer.hidden = false;
+      progressBar.value = 0;
+      status.innerHTML = "";
+      xhr.upload.onprogress = function (e) {
+
+        // update progress bar
+        progressBar.value = Math.round((e.loaded / e.total) * 100);
+        status.innerHTML =
+          "Uploaded " +
+          e.loaded +
+          " bytes of " +
+          e.total +
+          " (" +
+          progressBar.value +
+          "%)";
+      };
+
+      xhr.onload = function () {
+        if (xhr.status == 200) {
+          window.location.href = '/sortimgs/'
+        } else {
+          status.innerHTML = "Upload failed: " + xhr.status;
+        }
+      };
+      
+      xhr.onerror = function () {
+        status.innerHTML = "Upload failed: network error";
+      };
+      xhr.onabort = function () {
+        status.innerHTML = "Upload aborted";
+      };
+
+      xhr.open("POST", '.');
+      xhr.send(formData);
+    } else {
+      alert("Please drop some image files first.");
+    }
+  };
+
+clearButton.onclick = function () {
+  image.files = new DataTransfer().files;
+  progressContainer.hidden = true;
+};
+
+</script>
+
+{% endblock %}

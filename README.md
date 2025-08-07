@@ -1,8 +1,8 @@
-# SortImg
+# SortIT
 Easy image labeling tool by multiple user.
 
 ## Backgound
-SortImg is a web application that allows multiple users to label the same image set. The author, a pathologist, developed this application to facilitate research using machine learning models, with the main target being the classification of pathological image patches. Pathological images are known to have low inter-observer agreement in diagnosis. This application can be used to analyze the variation in judgment or to obtain data that can serve as a gold standard.
+SortIT is a web application that allows multiple users to label the same image set. Dr. Wataru Uegami, a pathologist, developed this application to facilitate research using machine learning models, with the main target being the classification of pathological image patches. Pathological images are known to have low inter-observer agreement in diagnosis. This application can be used to analyze the variation in judgment or to obtain data that can serve as a gold standard.
 
 
 ## How to build?
