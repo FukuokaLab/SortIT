@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+  <h1>My page</h1>
+  <hr>
+
+  <div class="row">
+    <div class="col"><h4>■ Account Information</h4></div>
+  </div>
+  <table class="table table-bordered">
+    <tbody>
+      <tr>
+        <td style="width: 50%;">Last Name</td>
+        <td style="width: 50%;">{{ user.last_name }}</td>
+      </tr>
+      <tr>
+        <td>First Name</td>
+        <td>{{ user.first_name }}</td>
+      </tr>
+      <tr>
+        <td>E mail</td>
+        <td>{{ user.email }}</td>
+      </tr>
+      <tr>
+        <td>User Name</td>
+        <td>{{ user.username }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="row mt-4">
+    <div class="col"><h4>■ Password</h4></div>
+  </div>
+  <table class="table table-bordered">
+    <tbody>
+      <tr>
+        <td style="width: 50%;">Password</td>
+        <td style="width: 50%;">Hidden</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="row mt-4">
+    <div class="col"><h4>■ Permissions</h4></div>
+  </div>
+  <table class="table table-bordered">
+    <tbody>
+      {% if user.is_staff %}
+      <tr>
+        <td style="width: 50%;">Staff Permissions</td>
+        <td style="width: 50%;">{{ user.is_staff }}</td>
+      </tr>
+      {% endif %}
+      {% if user.is_superuser %}
+      <tr>
+        <td>Superuser Permissions</td>
+        <td>{{ user.is_superuser }}</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+</div>
+{% endblock %}

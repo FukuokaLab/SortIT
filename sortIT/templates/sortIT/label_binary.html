@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block content %}
+    {% load static %}
+    <ul>
+        {% for is in ImageSet.objects.all %}
+            <li>
+                <a href="{% url 'sortIT:labeling/{{ is.id }}' %}">{{ is.name }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+    <div class="row">
+        <div class="m-2">
+            <p class="h4">
+                {{ imageset.name }} <!--<small class="text-muted">  {{ imageset.desc }}</small>-->
+            </p>
+        </div>
+        <div class="row m-2">
+            <div class="col">
+                <span class="progress">
+                    <span class="progress-bar"
+                          role="progressbar"
+                          style="width: {{ progress }}%"
+                          aria-valuenow="{{ progress }}"
+                          aria-valuemin="0"
+                          aria-valuemax="100"></span>
+                </span>
+            </div>
+            <div class='col'>{{ n_labeled }}/{{ n_total }}</div>
+        </div>
+        <div class="row m-2">
+            <div>
+                <button type='button'
+                        id='select-all-button1'
+                        class='btn btn-outline-secondary'>Select All</button>
+            </div>
+        </div>
+    </div>
+    <form action="{% url 'sortIT:sort_post' %}" method="post" id="sorting-form">
+        {% csrf_token %}
+        <div class="row y-3">
+            <input type="hidden" name="imageset" value="{{ imageset.id }}">
+        </div>
+        <div class="row m-2">
+            <div class="container-fluid">
+                <div class="row row-cols-auto g-3 justify-content-center">
+                    {% for image in images %}
+                        <div class="col" tabindex="0">
+                            <figure class="figure">
+                                <img src="{% url 'sortIT:show_img' image.id %}"
+                                     alt="{{ image.imageset }}"
+                                     class="img-fluid image imgsortone"
+                                     data-image="{{ image.id }}">
+                            </figure>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <input type="hidden" name="selected_images" id="selected-input">
+        <div class='row m-2'>
+            <p>
+                <em>
+                    Tap the images that do not match the label {{ label.name }}. Tap again to unselect. Alt + A to select all images. Press Next or Enter to submit.
+                </em>
+            </p>
+        </div>
+        <!--
+<img src="{% static 'sortIT/images/sortimg-logo2.png' %}" alt="sample logo">
+-->
+        <div class='row m-2'>
+            <div class="col">
+                <button type='button'
+                        id='select-all-button2'
+                        class='btn btn-outline-secondary'>Select All</button>
+            </div>
+            <div class="col">
+                <button type='submit' id='next-button' class='btn btn-primary'>
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         width="16"
+                         height="16"
+                         fill="currentColor"
+                         class="bi bi-caret-right-fill"
+                         viewBox="0 0 16 16">
+                        <path d="m12.14 8.753-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z" />
+                    </svg>
+                    Next
+                </button>
+            </div>
+        </div>
+        <input type="hidden" name="displayed_images" id="displayed-input">
+    </form>
+    <style>
+.selected {
+    outline: 5px solid #0080ff;
+}
+.checked {
+        display: none;
+}
+.image { max-width: 200px; max-height: 200px; }
+    </style>
+    <script>
+var images = document.querySelectorAll('.imgsortone');
+var form = document.getElementById('sorting-form');
+var input = document.getElementById('selected-input');
+var selectAllButton1 = document.getElementById('select-all-button1');
+var selectAllButton2 = document.getElementById('select-all-button2');
+var nextButton = document.getElementById('next-button');
+var selectedImages = [];
+
+// 選択された画像のIDを配列に追加または削除する関数
+function toggleImage(image) {
+    var id = image.dataset.image;
+    var index = selectedImages.indexOf(id);
+    if (index > -1) {
+        // 選択されていた場合は削除する
+        selectedImages.splice(index, 1);
+        image.classList.remove('selected');
+    } else {
+        // 選択されていなかった場合は追加する
+        selectedImages.push(id);
+        image.classList.add('selected');
+    }
+}
+
+
+// すべての画像を選択または解除する関数
+function selectAllImages() {
+    if (selectedImages.length == images.length) {
+        // すべての画像が選択されていた場合は解除する
+        for (var i = 0; i < images.length; i++) {
+            toggleImage(images[i]);
+        }
+    } else {
+        // すべての画像が選択されていなかった場合は選択する
+        for (var i = 0; i < images.length; i++) {
+            if (!images[i].classList.contains('selected')) {
+                toggleImage(images[i]);
+            }
+        }
+    }
+}
+
+for (var i = 0; i < images.length; i++) {
+  images[i].addEventListener('click', function() {
+    toggleImage(this);
+  });
+}
+
+// when All buttum selected
+selectAllButton1.addEventListener('click', function() {
+    selectAllImages();
+});
+// 全選択ボタンを押したときのイベントリスナー
+selectAllButton2.addEventListener('click', function() {
+    selectAllImages();
+});
+
+// Next button
+nextButton.addEventListener('click', function() {
+    input.value = selectedImages.join(',');
+    form.submit();
+});
+
+// Keyboard shortcut
+document.addEventListener('keydown', function(event) {
+    if (event.altKey && event.keyCode == 65) {
+        // Alt + A to select all
+        selectAllImages();
+    } else if (event.keyCode == 13) {
+        // Enter to select image
+        const focusedDiv = document.activeElement;
+        const image = focusedDiv.querySelector('img');
+        if (image && image.classList.contains('imgsortone')) {
+            toggleImage(image);
+        }
+    }
+});
+var displayedInput = document.getElementById('displayed-input'); var displayedImages = []; for (var i = 0; i < images.length; i++) { displayedImages.push(images[i].dataset.image); } displayedInput.value = displayedImages.join(',');
+
+    </script>
+{% endblock %}
