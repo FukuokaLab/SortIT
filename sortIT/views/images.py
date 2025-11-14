@@ -1,112 +1,24 @@
 import datetime
 import os
-import random
 import zipfile
 from io import BytesIO
 from pathlib import Path
-import logging
+import random
 
-import PIL
+import PIL.Image
+import matplotlib.pyplot as plt
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import FieldError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import FileResponse, HttpResponse, StreamingHttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.template.response import TemplateResponse
-from django.urls import reverse
 from django.utils.datastructures import MultiValueDictKeyError
-from django.views import generic
 
-from .admin import generate_csv_stream
-from .forms import ImageForm
-from .models import Annotation, Image, ImageSet, Label, Project, User
-
-
-# Single label (filtering)
-@staff_member_required
-def sortone(request, imageset_id):
-    # get specified image set
-    imageset = ImageSet.objects.get(id=imageset_id)
-
-    # Get images and labels linked to the ImageSet
-    images = imageset.images.all()
-    labels = imageset.labels.all()
-
-    # Check the number of labels linked to the ImageSet
-    if not (
-        labels.count() == 1
-        or (labels.count() == 2 and labels.filter(name="other").exists())
-    ):
-        # And Redirect to usual labeling mode View if there are > 2 labels
-        return redirect("sortIT:labeling", imageset_id=imageset_id)
-
-    # count total number of images
-    total_images = images.count()
-
-    # Get the label linked to the ImageSet that is not "other"
-    label = labels.exclude(name="other").first()
-
-    # Choose un-sorted images
-    unsorted_images = images.exclude(annotation__user=request.user)
-    if unsorted_images:
-        # number of images to show
-        n_images = 36
-        # Randomly select n_images
-        images = random.sample(
-            list(unsorted_images), min(n_images, unsorted_images.count())
-        )
-    else:
-        # If all images are sorted, redirect to finish
-        return redirect("sortIT:finish")
-
-    # Calculate progress
-    n_labeled = total_images - unsorted_images.count()
-    progress = round(n_labeled / total_images * 100)
-
-    # Show sorting form
-    context = {
-        "images": images,
-        "label": label,
-        "imageset": imageset,
-        "progress": progress,
-        "n_total": total_images,
-        "n_labeled": n_labeled,
-    }
-    return render(request, "sortIT/sortone.html", context)
-
-
-@staff_member_required
-def sort_post(request):
-    if request.method == "POST":
-        imageset_id = request.POST["imageset"]
-        selected_images = request.POST["selected_images"].split(",")
-
-        imageset = ImageSet.objects.get(id=imageset_id)
-        labels = imageset.labels.all()
-
-        # Get 'non-other' label which linked to the image-set
-        label = labels.exclude(name="other").first()
-
-        # Get all image id displayed
-        displayed_images = request.POST["displayed_images"].split(",")
-
-        # set selected images label to None
-        for image_id in displayed_images:
-            image = Image.objects.get(id=image_id)
-            if image_id in selected_images:
-                Annotation.objects.create(image=image, label=None, user=request.user)
-            else:
-                Annotation.objects.create(image=image, label=label, user=request.user)
-
-        # Redirect to the next page
-        return redirect("sortIT:sortone", imageset_id=imageset_id)
-
-
-def finish(request):
-    return render(request, "sortIT/thankyou.html")
+from sortIT.admin import generate_csv_stream
+from sortIT.forms import ImageForm
+from sortIT.models import Image, ImageSet, Project, User
 
 
 @login_required
@@ -116,11 +28,31 @@ def show_image(request, image_id):
     return response
 
 
-def make_montage(request, project_id):
+def make_montage(project_id):
     project = Project.objects.get(id=project_id)
     imagesets = project.imagesets.all()
-    images = list().extend([images.images.all() for images in imagesets])
-    print(images)
+    images = []
+    for i_s in imagesets:
+        images.extend(list(i_s.images.all()))
+    images = random.sample(images, k=20)
+    images = [PIL.Image.open(image.filepath) for image in images]
+    fig, axs = plt.subplots(
+        nrows=4, ncols=5, sharex=True, sharey=True, figsize=(2, 1.6)
+    )
+    for i, ax in enumerate(axs.flat):
+        ax.imshow(images[i])
+        ax.axis("off")
+    plt.savefig(f"media/montage_{project_id}.jpg", bbox_inches="tight", dpi=100)
+
+
+def show_montage(request, project_id):
+    if request.method == "GET":
+        try:
+            response = FileResponse(open(f"media/montage_{project_id}.jpg", "rb"))
+        except FileNotFoundError:
+            print(f"No montage for project {Project.objects.get(id=project_id)}")
+            response = HttpResponse()
+        return response
 
 
 def write_file(img_dst, jpeg_img):
@@ -139,7 +71,7 @@ def process_image(img, imageset_id):
                 pil_img = pil_img.convert("RGB")
 
             width, height = pil_img.size
-            max_size = (700, 700)
+            max_size = (256, 256)
             if width > max_size[0] or height > max_size[1]:
                 pil_img.thumbnail(max_size)
 
@@ -180,15 +112,15 @@ def process_image(img, imageset_id):
                     output_io.close()
 
     # Synchronize database operations
-    image = Image.objects.create(filepath=img_dst)
+    image = Image.objects.create(filepath=img_dst, name=imgname)
     image.imageset.set([imageset_id])
     image.save()
 
 
 @staff_member_required
 def image_upload(request, imageset_id):
-    # Synchronous processing
     imageset = ImageSet.objects.get(id=imageset_id)
+    project_id = Project.objects.get(imagesets=imageset).id
     form = ImageForm()
     if request.method == "POST":
         form = ImageForm(request.POST, request.FILES)
@@ -196,10 +128,9 @@ def image_upload(request, imageset_id):
             images = request.FILES.getlist("image")
             for img in images:
                 process_image(img, imageset_id)
-            return redirect(
-                "sortIT:choose_img_set",
-                project_id=Project.objects.get(imageset=imageset).id,
-            )
+
+            make_montage(project_id)
+            return redirect("sortIT:choose_img_set", project_id=project_id)
     else:
         context = {
             "imageset": imageset,

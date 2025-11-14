@@ -1,14 +1,15 @@
-# Multiple Choice Mode
 import random
+
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from sortIT.models import Annotation, Image, ImageSet, Label
 
 
-@staff_member_required
-def label_multi(request, imageset_id):
+@login_required
+def label(request, imageset_id):
     # get specified image set
     imageset = get_object_or_404(ImageSet, id=imageset_id)
 
@@ -20,7 +21,7 @@ def label_multi(request, imageset_id):
         labels.count() == 2 and labels.filter(name="other").exists()
     ):
         # And Redirect to sortOne View if there is ONLY ONE label other than "other" label
-        return redirect("sortIT:sortone", imageset_id=imageset_id)
+        return redirect("sortIT:sort", imageset_id=imageset_id)
 
     # Choose un-labeled images randomly
     unlabeled_images = images.exclude(annotations__user=request.user)
@@ -43,17 +44,17 @@ def label_multi(request, imageset_id):
         "n_total": total_images,
         "n_labeled": labeled_images,
     }
-    return render(request, "sortIT/labeling.html", context)
+    return render(request, "sortIT/label.html", context)
 
 
-@staff_member_required
-def label_multi_post(request):
+@login_required
+def label_post(request):
     # Get the image and label selected by the user
     image_id = request.POST.get("image")
     label_id = request.POST.get("label")
     if image_id and label_id:
-        image = Image.objects.get(id=image_id)  # pyright: ignore[reportAttributeAccessIssue]
-        label = Label.objects.get(id=label_id)  # pyright: ignore[reportAttributeAccessIssue]
+        image = Image.objects.get(id=image_id)
+        label = Label.objects.get(id=label_id)
 
         # Create an Annotation object
         annotation = Annotation(image=image, label=label, user=request.user)

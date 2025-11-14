@@ -1,16 +1,16 @@
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import FieldError
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from sortIT.models import Project
 
 
 @login_required
 def choose_proj(request):
-    try:
-        projs = Project.objects.all()  # pyright: ignore[reportAttributeAccessIssue]
+    projs = Project.objects.all()
+    if projs:
         context = {"object_list": projs}
         return render(request, "sortIT/project_list.html", context)
 
-    except FieldError:
-        return
+    else:
+        return redirect("/admin/sortIT/project/add/")
