@@ -139,7 +139,7 @@ MEDIA_URL = "/media/"
 
 LOGIN_URL = "account:login"
 LOGOUT_REDIRECT_URL = "account:login"
-LOGIN_REDIRECT_URL = "sortIT:choose_img_set"
+LOGIN_REDIRECT_URL = "sortIT:choose_proj"
 
 CSRF_COOKIE_SECURE = False  # turn on when use https only
 CSRF_COOKIE_HTTPONLY = True
