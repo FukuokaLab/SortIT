@@ -33,21 +33,22 @@ class LabelAdmin(admin.ModelAdmin):
 class ImageAdmin(admin.ModelAdmin):
     list_display = ["filepath"]
     list_filter = ["imageset"]
-    actions = ["remove_label"]
 
-    @admin.action(description="Remove labels for selected images")
-    def remove_label(self, request, queryset):
-        updated = queryset.update(label=None)
-        self.message_user(
-            request,
-            ngettext(
-                "%d label was changed to 'None'.",
-                "%d labels were changed to 'None'.",
-                updated,
-            )
-            % updated,
-            messages.SUCCESS,
-        )
+    # actions = ["remove_label"]
+    #
+    # @admin.action(description="Remove labels for selected images")
+    # def remove_annoatations(self, request, queryset):
+    #     updated = queryset.update(label=None)
+    #     self.message_user(
+    #         request,
+    #         ngettext(
+    #             "%d label was changed to 'None'.",
+    #             "%d labels were changed to 'None'.",
+    #             updated,
+    #         )
+    #         % updated,
+    #         messages.SUCCESS,
+    #     )
 
 
 def generate_csv_stream(separator=",", image_set=None):
@@ -107,3 +108,8 @@ class ImageSetAdmin(admin.ModelAdmin):
         return response
 
     export_as_csv.short_description = "Export as CSV"
+
+
+@admin.register(Annotation)
+class AnnotationAdmin(admin.ModelAdmin):
+    list_display = ["image__id", "label", "user"]
