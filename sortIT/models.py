@@ -1,3 +1,4 @@
+import datetime
 import os
 
 from django.contrib.auth.models import User
@@ -27,10 +28,14 @@ class ImageSet(models.Model):
     name = models.CharField(max_length=100)
     desc = models.TextField("Description", default=None, blank=True)
     project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="imageset"
+        Project, on_delete=models.CASCADE, related_name="imagesets"
     )
-    labels = models.ManyToManyField(Label, related_name="imageset")
-    timespent = models.DurationField()
+    labels = models.ManyToManyField(Label, related_name="imagesets")
+    tatime = models.DurationField(
+        default=datetime.timedelta(),
+        editable=False,
+        help_text="Turnaround time, or time spent labeling this set",
+    )
 
     def __str__(self):
         return self.name
@@ -38,7 +43,8 @@ class ImageSet(models.Model):
 
 class Image(models.Model):
     imageset = models.ManyToManyField(ImageSet, related_name="images")
-    filepath = models.FilePathField(path="data/patches", recursive=True)
+    filepath = models.FilePathField()
+    name = models.CharField(max_length=100)
 
     def __str__(self):
         return str(self.filepath)
@@ -46,8 +52,17 @@ class Image(models.Model):
 
 class Annotation(models.Model):
     image = models.ForeignKey(
-        Image, on_delete=models.CASCADE, related_name="annotation"
+        Image, on_delete=models.CASCADE, related_name="annotations"
     )
     label = models.ForeignKey(Label, on_delete=models.CASCADE, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     time = models.DateTimeField(auto_now_add=True)
+
+
+class UserPreferences(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="prefs")
+    nimgs = models.PositiveIntegerField(default=16)
+    imsize = models.PositiveIntegerField(default=200)
+
+    def __str__(self):
+        return f"{self.user.username}"
