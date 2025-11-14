@@ -8,28 +8,22 @@
                class="form-control"
                autofocus>
     </div>
-    <div class="row mx-auto my-2">
+    <div class="row mx-1 my-2">
         {% for project in object_list %}
-            <div class="col card-box mx-auto">
-                <div class="card m-1" style="width: 18rem;height: 18rem;">
-                    <div class="card-body">
-                        <h5 class="card-title my-1 text-center">{{ project.name }}</h5>
-                        <h6 class="card-subtitle my-1 text-muted">{{ project.desc }}</h6>
-                        <figure class="figure">
-                            <img src="{% url 'sortIT:show_img' 251 %}"
-                                 alt=""
-                                 class="img-fluid image">
-                        </figure>
-                        <span class="d-grid mx-auto my-3 position-absolute bottom-0 start-50 translate-middle-x">
-                            <a href="{% url 'sortIT:choose_img_set' project.id %}"
-                               class="btn btn-primary btn-large">Select</a>
-                        </span>
-                    </div>
+            <div class="card mx-auto" style="width: 18rem;">
+                <img src="{% url 'sortIT:show_montage' project.id %}"
+                     class="card-img-top"
+                     alt="">
+                <div class="card-body">
+                    <h5 class="card-title">{{ project.name }}</h5>
+                    <p class="card-text text-muted">{{ project.desc }}</p>
+                    <a href="{% url 'sortIT:choose_img_set' project.id %}"
+                       class="btn btn-primary btn-large"
+                       style="width:8rem">Select</a>
                 </div>
             </div>
         {% endfor %}
     </div>
-    <style>.image { max-width: 30px; max-height: 30px; }</style>
     <script>
 function filterCards() {
   let input = document.getElementById("search-input").value;

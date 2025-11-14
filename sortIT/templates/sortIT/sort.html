@@ -1,13 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
     {% load static %}
-    <ul>
-        {% for is in ImageSet.objects.all %}
-            <li>
-                <a href="{% url 'sortIT:labeling/{{ is.id }}' %}">{{ is.name }}</a>
-            </li>
-        {% endfor %}
-    </ul>
     <div class="row">
         <div class="m-2">
             <p class="h4">
@@ -28,13 +21,70 @@
             <div class='col'>{{ n_labeled }}/{{ n_total }}</div>
         </div>
         <div class="row m-2">
-            <div>
+            <div class="col">
+                <button class="btn btn-primary"
+                        type="button"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#sortsettings"
+                        aria-controls="sortsettings">Settings</button>
                 <button type='button'
                         id='select-all-button1'
                         class='btn btn-outline-secondary'>Select All</button>
             </div>
         </div>
     </div>
+    <form action="{% url 'sortIT:sort' imageset.id %}"
+          method="post"
+          id="sortsettings-form">
+        {% csrf_token %}
+        <div class="offcanvas offcanvas-start"
+             data-bs-scroll="true"
+             data-bs-backdrop="true"
+             tabindex="-1"
+             id="sortsettings"
+             aria-labelledby="sortsettings">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="sortsettings">Sort Settings</h5>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="offcanvas"
+                        aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <div class="card">
+                    <div class="card-body">
+                        <label for="nimgs_range" class="h5">Number of images</label>
+                        <input type="range"
+                               name="nimgs"
+                               class="form-range"
+                               min="8"
+                               max="128"
+                               step="8"
+                               value="{{ nimgs }}"
+                               id="nimgs_range">
+                        <output for="nimgs_range" id="nimgs" aria-hidden="true"></output>
+                    </div>
+                </div>
+                <div class="card my-2">
+                    <div class="card-body">
+                        <label for="imsize_range" class="h5">Image size</label>
+                        <input type="range"
+                               name="imsize"
+                               class="form-range"
+                               min="64"
+                               max="512"
+                               step="32"
+                               value="{{ imsize }}"
+                               id="imsize_range">
+                        <output for="imsize_range" id="imsize" aria-hidden="true"></output>
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </div>
+        </div>
+    </form>
     <form action="{% url 'sortIT:sort_post' %}" method="post" id="sorting-form">
         {% csrf_token %}
         <div class="row y-3">
@@ -49,7 +99,9 @@
                                 <img src="{% url 'sortIT:show_img' image.id %}"
                                      alt="{{ image.imageset }}"
                                      class="img-fluid image imgsortone"
-                                     data-image="{{ image.id }}">
+                                     data-image="{{ image.id }}"
+                                     style="width: {{ imsize }}px;
+                                            height: auto">
                             </figure>
                         </div>
                     {% endfor %}
@@ -64,9 +116,6 @@
                 </em>
             </p>
         </div>
-        <!--
-<img src="{% static 'sortIT/images/sortimg-logo2.png' %}" alt="sample logo">
--->
         <div class='row m-2'>
             <div class="col">
                 <button type='button'
@@ -96,9 +145,25 @@
 .checked {
         display: none;
 }
-.image { max-width: 200px; max-height: 200px; }
     </style>
     <script>
+// This is an example script, please modify as needed
+const nImgsInput = document.getElementById('nimgs_range');
+const nImgsOutput = document.getElementById('nimgs');
+const imsizeInput = document.getElementById('imsize_range');
+const imsizeOutput = document.getElementById('imsize');
+
+// Set initial value
+nImgsOutput.textContent = nImgsInput.value;
+imsizeOutput.textContent = imsizeInput.value;
+
+nImgsInput.addEventListener('input', function() {
+nImgsOutput.textContent = this.value;
+});
+imsizeInput.addEventListener('input', function() {
+imsizeOutput.textContent = this.value;
+});
+
 var images = document.querySelectorAll('.imgsortone');
 var form = document.getElementById('sorting-form');
 var input = document.getElementById('selected-input');

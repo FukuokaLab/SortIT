@@ -1,43 +1,43 @@
-
 {% extends 'base.html' %}
 {% block content %}
-{% load static %}
-<div class="m-3">
-    <input id="search-input" type="text" placeholder="Search" class="form-control" autofocus>
-</div>
-<div class="row my-2">
-{% for imageset in object_list %}
-    <div class="col card-box">
-
-        <div class="card m-1" style="width: 18rem;">
-        <div class="card-body">
-            <span class="h5 card-title">{{ imageset.name }}
-               <span class="badge rounded-pill text-bg-primary">{{ imageset.images.count }} </span></span>
-            <h6 class="card-subtitle my-1 text-muted">{{ imageset.description }}</h6>
-                <ul>
-                {% for key, value in label_dict.items %}
-                    {% if key == imageset %}
-                        {% for label in value %}
-                            <li>{{ label.name }}</li>
-                        {% endfor %}
-                    {% endif %}
-                {% endfor %}
-                </ul>
-            <span>
-                <a href="{% url 'sortIT:labeling' imageset.id %}" class="btn btn-secondary"> Select </a>
-            </span>
-            <span class="ms-3">
-                <a href="{% url 'sortIT:img_upload' imageset.id %}" class="btn btn-outline-secondary pull-right"><img src="{%  static 'upload.svg' %}" alt="upload"> Upload </a>
-            </span>
-        </div>
-        </div>
+    {% load static %}
+    <div class="m-3">
+        <input id="search-input"
+               type="text"
+               placeholder="Search"
+               class="form-control"
+               autofocus>
     </div>
-{% endfor %}
-
-</div>
-
-<script>
-
+    <div class="row my-2">
+        {% for imageset in object_list %}
+            <div class="col card-box">
+                <div class="card m-1" style="width: 18rem;">
+                    <div class="card-body">
+                        <span class="h5 card-title">{{ imageset.name }}
+                            <span class="badge rounded-pill text-bg-primary">{{ imageset.images.count }}</span></span>
+                            <h6 class="card-subtitle my-1 text-muted">{{ imageset.description }}</h6>
+                            <ul>
+                                {% for key, value in label_dict.items %}
+                                    {% if key == imageset %}
+                                        {% for label in value %}<li>{{ label.name }}</li>{% endfor %}
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                            <span>
+                                <a href="{% url 'sortIT:label' imageset.id %}" class="btn btn-secondary">Select</a>
+                            </span>
+                            <span class="ms-3">
+                                <a href="{% url 'sortIT:img_upload' imageset.id %}"
+                                   class="btn btn-outline-secondary pull-right">
+                                    <img src="{% static 'upload.svg' %}" alt="upload">
+                                Upload </a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <script>
 function filterCards() {
   let input = document.getElementById("search-input").value;
   input = input.toLowerCase();
@@ -61,7 +61,5 @@ const searchInput = document.getElementById("search-input");
 searchInput.addEventListener("input", filterCards);
 
 
-</script>
-
-
-{% endblock %}
+        </script>
+    {% endblock %}

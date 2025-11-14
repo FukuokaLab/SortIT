@@ -1,43 +1,44 @@
-
 {% extends 'base.html' %}
-
 {% load static %}
 {% block content %}
-<form method="post" enctype="multipart/form-data" id="upload-form">
-  {% csrf_token %}
-  <div class="form-group m-3">
-	  <h3>Upload to {{ imageset.name }}</h3>
-  </div>
-  <div class="m-3">
-    <div class="m-2">
-      <input type="file" name="image" id="image" multiple webkitdirectory>
+    <form method="post" enctype="multipart/form-data" id="upload-form">
+        {% csrf_token %}
+        <div class="form-group m-3">
+            <h3>Upload to {{ imageset.name }}</h3>
+        </div>
+        <div class="m-3">
+            <div class="m-2">
+                <input type="file"
+                       class="form-control form-control-lg"
+                       name="image"
+                       id="image"
+                       accept="image/png, image/jpeg"
+                       multiple
+                       webkitdirectory>
+            </div>
+            <div class="m-2">
+                <div class="dropzone"
+                     id="dropzone"
+                     style="border: 2px dashed #000000;
+                            padding: 70px;
+                            margin: 15px;
+                            font-size: 22px;
+                            color: #000000;
+                            background-color: #ffffff;
+                            text-align: center">Drop files or folder here</div>
+            </div>
+            <div class="m-2">
+                <button type="button" id="clear-button" class="btn btn-outline-secondary">Clear</button>
+                <button type="submit" id="upload-button" class="btn btn-primary">Upload</button>
+            </div>
+            <div class="m-2">* supported browser: Chrome/Edge</div>
+        </form>
+        <div id="progress-container" hidden>
+            <progress id="progress-bar" value="0" max="100"></progress>
+            <span id="status"></span>
+        </div>
     </div>
-
-    <div class="m-2">
-      <div class="dropzone" id="dropzone" style="border: 2px dashed #000000;padding: 70px;margin: 15px;font-size: 22px;color: #000000;background-color: #ffffff;text-align: center;">Drop files or folder here</div>
-    </div>
-
-    <div class="m-2">
-      <button type="button" id="clear-button" class="btn btn-outline-secondary">Clear</button>
-      <button type="submit" id="upload-button" class="btn btn-primary">Upload</button>
-    </div>
-
-    <div class="m-2">
-      * supported browser: Chrome/Edge
-    </div>
-
-
-  </form>
-  <div id="progress-container" hidden>
-    <progress id="progress-bar" value="0" max="100"></progress>
-    <span id="status"></span>
-  </div>
-  </div>
-
-
-
-<script type="text/javascript">
-  
+    <script type="text/javascript">
   var dropzone = document.getElementById("dropzone");
   var image = document.getElementById("image");
   var uploadButton = document.getElementById("upload-button");
@@ -62,7 +63,7 @@
     return false;
   };
 
-// Whan fille dropped...
+// When file is dropped...
 dropzone.ondrop = async (e) => {
 
   e.preventDefault();
@@ -152,8 +153,6 @@ dropzone.ondrop = async (e) => {
   console.log("Number of images: " + imageCount);
 };
 
-
-
 // Push SUBMIT button
   uploadButton.onclick = function (e) {
     e.preventDefault();
@@ -208,6 +207,5 @@ clearButton.onclick = function () {
   progressContainer.hidden = true;
 };
 
-</script>
-
+    </script>
 {% endblock %}
