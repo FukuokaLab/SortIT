@@ -1,9 +1,14 @@
+import csv
 import datetime
+import io
+import os
 from pathlib import Path
+import zipfile
 
+from django.conf import settings
 from django.contrib import admin, messages
 from django.db.models import Count
-from django.http import StreamingHttpResponse
+from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import ngettext
 
@@ -13,6 +18,7 @@ from .models import Annotation, Image, ImageSet, Label, User, Project
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ["name", "get_labels"]
+    actions = ["export_as_csv"]
 
     @admin.display(description="Labels")
     def get_labels(self, obj):
@@ -21,6 +27,41 @@ class ProjectAdmin(admin.ModelAdmin):
             "{}<sub>{}</sub>",
             ((lab, lab.id) for lab in obj.labels.all()),
         )
+
+    def export_as_csv(self, request, queryset):
+        """
+        Export CSV for each selected project.
+        If only one project is selected, return a single CSV file.
+        For multiple projects, package CSVs into a ZIP archive.
+        """
+        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        if len(queryset) == 1:
+            project = queryset[0]
+            csv_generator = generate_csv_stream(project=project)
+            response = StreamingHttpResponse(csv_generator, content_type="text/csv")
+            response["Content-Disposition"] = (
+                f'attachment; filename="{project}_{current_datetime}.csv"'
+            )
+        else:
+            zip_io = io.BytesIO()
+            with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
+                for project in queryset:
+                    csv_io = io.StringIO()
+                    writer = csv.writer(csv_io, delimiter=",")
+                    # write header
+                    header_row = ["Image"] + [u.username for u in project.users.all()]
+                    writer.writerow(header_row)
+                    for row in generate_csv_stream(project=project):
+                        writer.writerow(row.split(","))
+                    # add to zip
+                    zf.writestr(f"{project}_{current_datetime}.csv", csv_io.getvalue())
+            zip_io.seek(0)
+            response = HttpResponse(zip_io, content_type="application/zip")
+            zip_name = f"{request.user.username}_{current_datetime}.zip"
+            response["Content-Disposition"] = f'attachment; filename="{zip_name}"'
+        return response
+
+    export_as_csv.short_description = "Export as CSV"
 
 
 @admin.register(Label)
@@ -31,52 +72,42 @@ class LabelAdmin(admin.ModelAdmin):
 
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
-    list_display = ["filepath"]
-    list_filter = ["imageset"]
-
-    # actions = ["remove_label"]
-    #
-    # @admin.action(description="Remove labels for selected images")
-    # def remove_annoatations(self, request, queryset):
-    #     updated = queryset.update(label=None)
-    #     self.message_user(
-    #         request,
-    #         ngettext(
-    #             "%d label was changed to 'None'.",
-    #             "%d labels were changed to 'None'.",
-    #             updated,
-    #         )
-    #         % updated,
-    #         messages.SUCCESS,
-    #     )
+    list_display = ["id", "name"]
+    list_filter = ["imageset", "imageset__project"]
 
 
-def generate_csv_stream(separator=",", image_set=None):
+def generate_csv_stream(separator=",", image_set=None, project=None):
     """
-    Generator function to stream CSV data
+    Generator function to stream CSV data.
+    Accepts either a single image_set or a whole project.
     """
-    header_row = ["Image Name"] + [user.username for user in User.objects.all()]
-    yield (separator.join(header_row) + "\n")
+    # Determine which images to include
+    if project is not None:
+        images = Image.objects.filter(imageset__project=project)
+        header_row = ["Images"] + [user.username for user in project.users.all()]
+    elif image_set is not None:
+        images = Image.objects.filter(imageset=image_set)
+        header_row = ["Images"] + [
+            user.username for user in image_set.project.users.all()
+        ]
+    else:
+        # No filtering – return an empty generator
+        return
+    # Header
+    yield separator.join(header_row) + "\n"
 
-    # write data row
-    images = Image.objects.filter(imageset=image_set)
     for image in images:
         ext = Path(image.filepath).name.split(".")[-2]
-        row = [Path(image.filepath).stem.split("___")[0] + "." + ext]
-        annotations = Annotation.objects.filter(image=image)
-
+        row = [Path(image.name).stem.split("___")[0] + "." + ext]
+        annotations = Annotation.objects.filter(image=image, label__isnull=False)
         annotation_dict = {
             annotation.user.username: annotation.label.name
             for annotation in annotations
             if annotation.label is not None
         }
-
-        # Write the label name of the Annotation for each user (leave blank if not present)
         for user in User.objects.all():
-            user_label = annotation_dict.get(user.username, "")
-            row.append(user_label)
-
-        yield (separator.join(row) + "\n")
+            row.append(annotation_dict.get(user.username, ""))
+        yield separator.join(row) + "\n"
 
 
 @admin.register(ImageSet)
@@ -97,13 +128,14 @@ class ImageSetAdmin(admin.ModelAdmin):
 
     def export_as_csv(self, request, queryset):
         """
-        Export all rabeling data for each user by csv (semi-colon)
+        Export all labeling data for each user by csv
         """
-        csv_generator = generate_csv_stream(separator=",", image_set=queryset[0])
-        response = StreamingHttpResponse(csv_generator, content_type="text/csv")
         current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        imageset = queryset[0]
+        csv_generator = generate_csv_stream(separator=",", image_set=imageset)
+        response = StreamingHttpResponse(csv_generator, content_type="text/csv")
         response["Content-Disposition"] = (
-            f'attachment; filename="image_set{queryset[0]}_{current_datetime}.csv"'
+            f'attachment; filename="{imageset}_{current_datetime}.csv"'
         )
         return response
 
