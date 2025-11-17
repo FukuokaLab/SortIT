@@ -13,7 +13,7 @@
       <div class="card mx-auto" style="width: 18rem;">
         <img src="{% url 'sortIT:show_montage' project.id %}"
              class="card-img-top"
-             alt="">
+             alt="{{ project.name }}">
         <div class="card-body">
           <h5 class="card-title">
             {{ project.name }}
@@ -25,9 +25,9 @@
             <a href="{% url 'sortIT:choose_img_set' project.id %}"
                class="btn btn-primary btn-large">Select</a>
             <a href="{% url 'sortIT:down_proj_csv' project.id %}"
-               class="btn btn-secondary btn-large mx-auto">
-              Export CSV
-            </a>
+               class="btn btn-outline-secondary btn-large mx-auto">
+              <img src="{% static 'download.svg' %}" alt="download">
+            Export CSV </a>
           </div>
         </div>
       </div>
