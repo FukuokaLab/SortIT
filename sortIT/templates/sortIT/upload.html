@@ -1,42 +1,41 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-  <form method="post" enctype="multipart/form-data" id="upload-form">
+  <form method="post"
+        enctype="multipart/form-data"
+        id="upload-form"
+        action="{% url 'sortIT:upload' imageset.id %}">
     {% csrf_token %}
-    <div class="form-group m-3">
-      <h3>
-        Upload to {{ imageset.name }}
-      </h3>
-    </div>
-    <div class="container">
-      <div class="row">
-        <div class="col">
-          <div class="input-group custom-file-button">
-            <label class="input-group-text" for="image-dir">
-              Folder
-            </label>
-            <input type="file"
-                   class="form-control form-control-lg"
-                   name="image-dir"
-                   id="image-dir"
-                   accept="image/png, image/jpeg"
-                   multiple
-                   webkitdirectory />
-          </div>
-        </div>
-        <div class="col">
-          <div class="input-group custom-file-button">
-            <label class="input-group-text" for="image-dir">
-              Files
-            </label>
-            <input type="file"
-                   class="form-control form-control-lg"
-                   name="image"
-                   id="image"
-                   accept="image/png, image/jpeg"
-                   multiple />
-          </div>
-        </div>
+    <div class="form-group m-3 container">
+      <h4>
+        Upload to <b>{{ imageset.name }}</b>
+      </h4>
+      <div class="input-group my-3">
+        <label class="input-group-text btn btn-info"
+               for="image-dir"
+               style="width: 10%">
+          Folders
+        </label>
+        <input type="file"
+               class="form-control"
+               name="image-dir"
+               id="image-dir"
+               accept="image/png, image/jpeg"
+               multiple
+               webkitdirectory />
+      </div>
+      <div class="input-group">
+        <label class="input-group-text btn btn-success"
+               for="image"
+               style="width: 10%">
+          Files
+        </label>
+        <input type="file"
+               class="form-control"
+               name="image"
+               id="image"
+               accept="image/png, image/jpeg"
+               multiple />
       </div>
       <div class="m-2">
         <div class="dropzone"
@@ -51,16 +50,16 @@
           Drop files or folder here
         </div>
       </div>
-      <div class="m-2">
+      <div class="m-2" id="bottom-btns">
         <button type="button" id="clear-button" class="btn btn-outline-secondary">
           Clear
         </button>
         <button type="submit" id="upload-button" class="btn btn-primary">
           Upload
         </button>
-      </div>
-      <div class="m-2">
-        * supported browser: Chrome/Edge
+        <p class="m-2 text-muted">
+          *supported browsers: Chrome/Edge
+        </p>
       </div>
       <div id="progress-container" hidden>
         <progress id="progress-bar" value="0" max="100"></progress>
@@ -78,6 +77,7 @@
     var status = document.getElementById("status");
     var progressContainer = document.getElementById("progress-container");
     var clearButton = document.getElementById("clear-button");
+    var bottomButtons = document.getElementById("bottom-btns")
 
     dropzone.ondragover = function(e) {
       e.preventDefault();
@@ -191,7 +191,7 @@
         var formData = new FormData(uploadForm);
         var xhr = new XMLHttpRequest();
 
-        uploadButton.hidden = true;
+        bottomButtons.hidden = true;
         // reveal progress container
         progressContainer.hidden = false;
         progressBar.value = 0;
@@ -224,7 +224,7 @@
           status.innerHTML = "Upload aborted";
         };
 
-        xhr.open("POST", ".");
+        xhr.open("POST", uploadForm.action);
         xhr.send(formData);
       } else {
         alert("Please drop some image files first.");

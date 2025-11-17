@@ -1,6 +1,5 @@
 import datetime
 import os
-import zipfile
 from io import BytesIO
 from pathlib import Path
 import random
@@ -15,15 +14,12 @@ from django.http import (
     FileResponse,
     HttpResponse,
     HttpResponseBadRequest,
-    StreamingHttpResponse,
 )
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.datastructures import MultiValueDictKeyError
 
-from sortIT.admin import generate_csv_stream
 from sortIT.forms import ImageForm
-from sortIT.models import Image, ImageSet, Project, User
+from sortIT.models import Image, ImageSet, Project
 
 
 @login_required
@@ -163,4 +159,4 @@ def image_upload(request, imageset_id):
             "imageset": imageset,
             "form": form,
         }
-        return TemplateResponse(request, "sortIT/image_upload.html", context)
+        return TemplateResponse(request, "sortIT/upload.html", context)

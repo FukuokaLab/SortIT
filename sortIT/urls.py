@@ -19,7 +19,7 @@ urlpatterns = [
         imageset_list.download_csv,
         name="down_imset_csv",
     ),
-    path("upload_imgs/<int:imageset_id>", images.image_upload, name="img_upload"),
+    path("upload/<int:imageset_id>", images.image_upload, name="upload"),
     path("show_img/<int:image_id>", images.show_image, name="show_img"),
     path("show_montage/<int:project_id>", images.show_montage, name="show_montage"),
     path("label/<int:imageset_id>", label.label, name="label"),
