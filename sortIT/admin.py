@@ -1,16 +1,13 @@
 import csv
 import datetime
 import io
-import os
 from pathlib import Path
 import zipfile
 
-from django.conf import settings
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.db.models import Count
-from django.http import FileResponse, HttpResponse, StreamingHttpResponse
-from django.utils.html import format_html, format_html_join
-from django.utils.translation import ngettext
+from django.http import HttpResponse, HttpResponseBadRequest, StreamingHttpResponse
+from django.utils.html import format_html_join
 
 from .models import Annotation, Image, ImageSet, Label, User, Project
 
@@ -130,13 +127,16 @@ class ImageSetAdmin(admin.ModelAdmin):
         """
         Export all labeling data for each user by csv
         """
-        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        imageset = queryset[0]
-        csv_generator = generate_csv_stream(separator=",", image_set=imageset)
-        response = StreamingHttpResponse(csv_generator, content_type="text/csv")
-        response["Content-Disposition"] = (
-            f'attachment; filename="{imageset}_{current_datetime}.csv"'
-        )
+        if request.method == "POST":
+            current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            imageset = queryset[0]
+            csv_generator = generate_csv_stream(separator=",", image_set=imageset)
+            response = StreamingHttpResponse(csv_generator, content_type="text/csv")
+            response["Content-Disposition"] = (
+                f'attachment; filename="{imageset}_{current_datetime}.csv"'
+            )
+        else:
+            return HttpResponseBadRequest()
         return response
 
     export_as_csv.short_description = "Export as CSV"

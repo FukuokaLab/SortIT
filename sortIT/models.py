@@ -15,6 +15,7 @@ class Project(models.Model):
 
 class Label(models.Model):
     name = models.CharField(max_length=100)
+    desc = models.TextField("Description", default=None, blank=True)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="labels"
     )
@@ -30,11 +31,6 @@ class ImageSet(models.Model):
         Project, on_delete=models.CASCADE, related_name="imagesets"
     )
     labels = models.ManyToManyField(Label, related_name="imagesets")
-    tatime = models.DurationField(
-        default=datetime.timedelta(),
-        editable=False,
-        help_text="Turnaround time, or time spent labeling this set",
-    )
 
     def __str__(self):
         return self.name
@@ -42,7 +38,7 @@ class ImageSet(models.Model):
 
 class Image(models.Model):
     imageset = models.ManyToManyField(ImageSet, related_name="images")
-    sortedsets = models.ManyToManyField(ImageSet, null=True)
+    sortedsets = models.ManyToManyField(ImageSet)
     filepath = models.FilePathField(editable=False)
     name = models.CharField(max_length=100)
 
