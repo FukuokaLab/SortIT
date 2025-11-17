@@ -25,17 +25,30 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {
         "console": {
+            "level": "INFO",
             "class": "logging.StreamHandler",
+            "formatter": "simple",
         },
         "file": {
-            "level": "DEBUG",
+            "level": "WARNING",
             "class": "logging.FileHandler",
-            "filename": "logs/test.log",
+            "filename": "logs/sortit.log",
+            "formatter": "verbose",
         },
     },
     "root": {
-        "handlers": ["console"],
+        "handlers": ["console", "file"],
         "level": "WARNING",
+    },
+    "formatters": {
+        "verbose": {
+            "format": "[{levelname} {asctime}] {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
     },
 }
 # Application definition
