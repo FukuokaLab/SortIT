@@ -31,7 +31,9 @@ def sort(request, imageset_id):
     label = labels.exclude(name="other").first()
 
     # Choose un-sorted images
-    unsorted_images = images.exclude(annotations__user=request.user)
+    unsorted_images = images.exclude(
+        annotations__user=request.user, sortedsets=imageset_id
+    )
     if unsorted_images:
         # number of images to show
         prefs = UserPreferences.objects.get(user=request.user)
@@ -90,10 +92,18 @@ def sort_post(request):
         # set selected images label to None
         for image_id in displayed_images:
             image = Image.objects.get(id=image_id)
-            if image_id in selected_images:
-                Annotation.objects.create(image=image, label=None, user=request.user)
+            image.sortedsets.add(imageset)
+            if (
+                image_id not in selected_images
+                and image.annotations.filter(user=request.user) is None
+            ):
+                Annotation.objects.update_or_create(
+                    image=image, label=label, user=request.user
+                )
             else:
-                Annotation.objects.create(image=image, label=label, user=request.user)
+                Annotation.objects.update_or_create(
+                    image=image, label=None, user=request.user
+                )
 
         # Redirect to the next page
         return redirect("sortIT:sort", imageset_id=imageset_id)
