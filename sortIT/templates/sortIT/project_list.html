@@ -1,51 +1,59 @@
 {% extends 'base.html' %}
 {% block content %}
-    {% load static %}
-    <div class="m-3">
-        <input id="search-input"
-               type="text"
-               placeholder="Search"
-               class="form-control"
-               autofocus>
-    </div>
-    <div class="row mx-1 my-2">
-        {% for project in object_list %}
-            <div class="card mx-auto" style="width: 18rem;">
-                <img src="{% url 'sortIT:show_montage' project.id %}"
-                     class="card-img-top"
-                     alt="">
-                <div class="card-body">
-                    <h5 class="card-title">{{ project.name }}</h5>
-                    <p class="card-text text-muted">{{ project.desc }}</p>
-                    <a href="{% url 'sortIT:choose_img_set' project.id %}"
-                       class="btn btn-primary btn-large"
-                       style="width:8rem">Select</a>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-    <script>
-function filterCards() {
-  let input = document.getElementById("search-input").value;
-  input = input.toLowerCase();
+  {% load static %}
+  <div class="m-3">
+    <input id="search-input"
+           type="text"
+           placeholder="Search"
+           class="form-control"
+           autofocus>
+  </div>
+  <div class="row mx-1 my-2">
+    {% for project in object_list %}
+      <div class="card mx-auto" style="width: 18rem;">
+        <img src="{% url 'sortIT:show_montage' project.id %}"
+             class="card-img-top"
+             alt="">
+        <div class="card-body">
+          <h5 class="card-title">
+            {{ project.name }}
+          </h5>
+          <p class="card-text text-muted">
+            {{ project.desc }}
+          </p>
+          <div class="text-align">
+            <a href="{% url 'sortIT:choose_img_set' project.id %}"
+               class="btn btn-primary btn-large">Select</a>
+            <a href="{% url 'sortIT:down_proj_csv' project.id %}"
+               class="btn btn-secondary btn-large mx-auto">
+              Export CSV
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <script>
+    function filterCards() {
+      let input = document.getElementById("search-input").value;
+      input = input.toLowerCase();
 
-  let cards = document.getElementsByClassName("card-box");
+      let cards = document.getElementsByClassName("card-box");
 
-  for (let i = 0; i < cards.length; i++) {
-    let cardText = cards[i].innerText;
+      for (let i = 0; i < cards.length; i++) {
+        let cardText = cards[i].innerText;
 
-    cardText = cardText.toLowerCase();
+        cardText = cardText.toLowerCase();
 
-    if (cardText.includes(input)) {
-      cards[i].style.display = "";
-    } else {
-      cards[i].style.display = "none";
+        if (cardText.includes(input)) {
+          cards[i].style.display = "";
+        } else {
+          cards[i].style.display = "none";
+        }
+      }
     }
-  }
-}
 
-const searchInput = document.getElementById("search-input");
-searchInput.addEventListener("input", filterCards);
-
-    </script>
+    const searchInput = document.getElementById("search-input");
+    searchInput.addEventListener("input", filterCards);
+  </script>
 {% endblock %}
