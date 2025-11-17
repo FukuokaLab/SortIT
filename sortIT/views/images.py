@@ -86,8 +86,6 @@ def process_image(img, imageset_id):
             if width > max_size[0] or height > max_size[1]:
                 pil_img.thumbnail(max_size)
 
-            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-
             with BytesIO() as output_io:
                 try:
                     # if the image size is > 15KB save image with quality 75 to save the storage
@@ -133,10 +131,12 @@ def image_upload(request, imageset_id):
     imageset = ImageSet.objects.get(id=imageset_id)
     project = imageset.project
     form = ImageForm()
+    Path(settings.MEDIA_ROOT).mkdir(exist_ok=True)
     if request.method == "POST":
         form = ImageForm(request.POST, request.FILES)
         if form.is_valid():
             images = request.FILES.getlist("image")
+            images.extend(request.FILES.getlist("image-dir"))
             for img in images:
                 # Check for an existing image with the same original filename in this project
                 original_name = Path(img._get_name())
