@@ -1,14 +1,13 @@
 import datetime
-import os
 
 from django.contrib.auth.models import User
 from django.db import models
-from django.dispatch import receiver
 
 
 class Project(models.Model):
     name = models.CharField(max_length=100, default=None)
     desc = models.TextField("Description", default=None, blank=True)
+    users = models.ManyToManyField(User, related_name="projects")
 
     def __str__(self):
         return self.name
@@ -43,7 +42,8 @@ class ImageSet(models.Model):
 
 class Image(models.Model):
     imageset = models.ManyToManyField(ImageSet, related_name="images")
-    filepath = models.FilePathField()
+    sortedsets = models.ManyToManyField(ImageSet, null=True)
+    filepath = models.FilePathField(editable=False)
     name = models.CharField(max_length=100)
 
     def __str__(self):
@@ -56,7 +56,6 @@ class Annotation(models.Model):
     )
     label = models.ForeignKey(Label, on_delete=models.CASCADE, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    time = models.DateTimeField(auto_now_add=True)
 
 
 class UserPreferences(models.Model):
