@@ -17,38 +17,38 @@ Easy image labeling tool for multiple users.
 
 ## Backgound
 
-SortIT is a web application that allows multiple users to label the same image set. The author, a pathologist, developed this application to facilitate research using machine learning models, with the main target being the classification of pathological image patches. Pathological images are known to have low inter-observer agreement in diagnosis. This application can be used to analyze the variation in judgment or to obtain data that can serve as a gold standard.
+SortIT is a web application that allows multiple users to label the same image set. The author, a pathologist, developed this application to facilitate research using machine learning models, with the main target being the classification of pathological image patches. Pathological images are known to have low inter-observer agreement in diagnosis. This application can be used to analyze variation in judgment between observers or to obtain gold-standard ground truth labels.
 
 ![SortIT Screenshot](docs/figures/readme1.png)
 
 ## Getting Started  
 
+```bash
+# Clone repo
+git clone https://github.com/FukuokaLab/SortIT.git
+cd SortIT
+
+# Install dependencies
+uv sync
+source .venv/bin/activate
+
+# Set up app
+cp .env.example .env
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser
+
+# Run app
+python manage.py runserver 0.0.0.0:8000
+```
+
 1. **Clone the repository**  
-   ```bash
-   git clone https://github.com/FukuokaLab/SortIT.git
-   cd SortIT
-   ```
+2. **Install the required packages** ([uv](https://docs.astral.sh/uv/#installation) recommended)
+3. **Apply database migrations**  
+4. **Create a super‑user (for admin access)**  
+5. **Run the app server**
 
-2. **Create a Python virtual environment** (Python 3.10+ recommended)  
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. **Install the required packages**  
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Apply database migrations**  
-   ```bash
-   python manage.py migrate
-   ```
-
-5. **Create a super‑user (for admin access)**  
-   ```bash
-   python manage.py createsuperuser
-   ```
+Dependencies are listed in the `pyproject.toml` file. Pip can also be used to install these dependencies. 
 
 ---
 
@@ -104,6 +104,49 @@ Example: `192.168.1.5:8000`.
 If you see the login page, the server is running correctly.
 
 ---
+## Using SortIT
+
+1. Creating a Project
+After setting up the administrator account (`createsuperuser`) and logging in for the first time, the app will direct to the "Add project" page. 
+Fill out the fields (description fields are always optional), and click save.
+
+2. Creating an Image Set
+On the left side of the window, click "Add" next to "Image sets". Fill out the name, add it under the project created in step one, and create labels for this image set. Labels can be created by using the link on the sidebar, or by clicking the green + mark on this page.
+
+3. Uploading Images
+Once the image set is created, click "View Site" at the top of the page.
+Select your project, then click "Upload" for the image set you would like to upload images for.
+Click on `Folders` or `Files` to open a file selection window, or drag and drop your tiles. 
+Click "Upload" to begin processing your files.
+
+4. Sorting Image Sets
+For an imageset with one label, you can upload patches, then click on patches which do not belong. Annotations will be saved per-image, per-user.
+
+5. Exporting Labels
+Either at the project level, or for individual image sets, you can click "Export CSV" to get a spreadsheet of images and labels for each user.
+
+> [!IMPORTANT]
+> Please note that this app does not create patches/tiles from WSI. You must do this separately, then you can upload the patches to this page for labeling.
+
+---
+## MIXTURE Method
+
+Similar to the method described in the [MIXTURE paper (W. Uegami et al 2022)](https://www.nature.com/articles/s41379-022-01025-7), one way to use this app is as follows:
+
+1. Extract patch features using a feature extraction model.
+Pretrained feature extractors are avaiable from pytorch `timm` and various foundation models are now becoming popular.
+
+2. Cluster the patch features
+Use a clustering library like [scikit-learn](https://scikit-learn.org/stable/modules/clustering.html#clustering) to cluster the patches by their feature embeddings. KMeans is fast and typically does a good enough job with `n_clusters = 50`.
+
+3. Medical experts can identify clusters
+Trained experts can quickly scan through the clusters and identify broadly what they contain. Some clusters are too mixed to be useful, but other clusters will be mostly comprised of one tissue type.
+
+4. Upload clusters to SortIT for cleaning 
+Clusters which are mostly of one tissue type but have some incorrect patches inside can be uploaded to SortIT and quickly filtered. 
+Multiple users can give annotations, which should allow for better ground truth labels.
+
+---
 
 ## Basic Configuration  
 
@@ -113,8 +156,8 @@ Typical things you might edit:
 
 | What you want to change | Where to edit |
 |-------------------------|---------------|
-| Database connection | `DATABASES` section in `settings.py` |
 | Static / media file URLs | `STATIC_URL`, `MEDIA_URL` |
+| Logging to a file | `LOGGING` |
 
 ---
 
