@@ -1,66 +1,79 @@
 {% extends 'base.html' %}
 {% block content %}
   {% load static %}
-  <div class="m-3">
-    <input id="search-input"
-           type="text"
-           placeholder="Search"
-           class="form-control"
-           autofocus>
-  </div>
   <div class="container">
+    <div class="my-3">
+      <input id="search-input"
+             type="text"
+             placeholder="Search"
+             class="form-control"
+             autofocus>
+    </div>
     <div class="row my-2">
       {% for imageset in object_list %}
         <div class="col card-box">
-          <div class="card m-1" style="width: 18rem;">
-            <div class="card-body">
-              <h5 class="card-title mb-0 d-flex justify-content-between align-items-baseline">
-                <span>{{ imageset.name }}</span>
-                <span class="badge rounded-pill text-bg-primary">{{ imageset.images.count }}</span>
-              </h5>
-              <p class="card-subtitle my-1 text-muted">
-                {{ imageset.desc }}
-              </p>
-              <div class="d-grid gap-2">
-                <a href="{% url 'sortIT:label' imageset.id %}" class="btn btn-primary">Select</a>
-              </div>
-              <div class="text-center my-2">
-                <a href="{% url 'sortIT:upload' imageset.id %}"
-                   class="btn btn-outline-secondary pull-right">
-                  <img src="{% static 'upload.svg' %}" alt="upload">
-                Upload </a>
-                <a href="{% url 'sortIT:down_imset_csv' imageset.id %}"
-                   class="btn btn-outline-secondary pull-right">
-                  <img src="{% static 'download.svg' %}" alt="download">
-                Export CSV </a>
+          <div class="card mb-3" style="max-width: 540px;">
+            <div class="row g-0 align-items-center">
+              {% if imageset.images.first %}
+                <div class="col-md-4">
+                  <img src="{% url 'sortIT:show_img' imageset.images.first.id %}"
+                       class="img-fluid rounded-start mx-2"
+                       alt="{{ imageset.id }}">
+                </div>
+              {% endif %}
+              <div class="col">
+                <div class="card-body">
+                  <h5 class="card-title d-flex justify-content-between">
+                    <span>{{ imageset.name }}</span>
+                    <span class="badge rounded-pill text-bg-primary">{{ imageset.images.count }}</span>
+                  </h5>
+                  <p class="card-text text-body-secondary">
+                    {{ imageset.desc }}
+                  </p>
+                  <div class="d-flex gap-1">
+                    <a href="{% url 'sortIT:label' imageset.id %}"
+                       class="btn btn-primary flex-grow-1">Select</a>
+                    <a href="{% url 'sortIT:upload' imageset.id %}"
+                       class="btn btn-outline-secondary">
+                      <img src="{% static 'upload.svg' %}" alt="upload" style="max-height: 20px">
+                    Upload </a>
+                    <a href="{% url 'sortIT:down_imset_csv' imageset.id %}"
+                       class="btn btn-outline-secondary">
+                      <img src="{% static 'download.svg' %}"
+                           alt="download"
+                           style="max-height: 20px">
+                    Export CSV </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      {% endfor %}
-    </div>
+      </div>
+    {% endfor %}
   </div>
-  <script>
-    function filterCards() {
-      let input = document.getElementById("search-input").value;
-      input = input.toLowerCase();
+</div>
+<script>
+  function filterCards() {
+    let input = document.getElementById("search-input").value;
+    input = input.toLowerCase();
 
-      let cards = document.getElementsByClassName("card-box");
+    let cards = document.getElementsByClassName("card-box");
 
-      for (let i = 0; i < cards.length; i++) {
-        let cardText = cards[i].innerText;
+    for (let i = 0; i < cards.length; i++) {
+      let cardText = cards[i].innerText;
 
-        cardText = cardText.toLowerCase();
+      cardText = cardText.toLowerCase();
 
-        if (cardText.includes(input)) {
-          cards[i].style.display = "";
-        } else {
-          cards[i].style.display = "none";
-        }
+      if (cardText.includes(input)) {
+        cards[i].style.display = "";
+      } else {
+        cards[i].style.display = "none";
       }
     }
+  }
 
-    const searchInput = document.getElementById("search-input");
-    searchInput.addEventListener("input", filterCards);
-  </script>
+  const searchInput = document.getElementById("search-input");
+  searchInput.addEventListener("input", filterCards);
+</script>
 {% endblock %}
