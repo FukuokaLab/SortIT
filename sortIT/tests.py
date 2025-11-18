@@ -1,18 +1,21 @@
 from django.contrib.auth.models import User
-from django.test import TestCase, Client
+from django.test import Client, TestCase
 from django.urls import reverse
 
-from sortIT.models import Project, Label, ImageSet, Image, Annotation, UserPreferences
 from sortIT.forms import ImageForm
+from sortIT.models import Annotation, Image, ImageSet, Label, Project, UserPreferences
 
 
 class ModelTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.project = Project.objects.create(
-            name="Test Project", desc="Test Description"
+            name="Test Project",
+            desc="Test Description",
         )
         self.project.users.add(self.user)
 
@@ -25,7 +28,9 @@ class ModelTestCase(TestCase):
     def test_label_creation(self):
         """Test creating a label"""
         label = Label.objects.create(
-            name="Test Label", desc="Test Label Description", project=self.project
+            name="Test Label",
+            desc="Test Label Description",
+            project=self.project,
         )
         self.assertEqual(label.name, "Test Label")
         self.assertEqual(label.project, self.project)
@@ -33,10 +38,14 @@ class ModelTestCase(TestCase):
     def test_imageset_creation(self):
         """Test creating an ImageSet"""
         label = Label.objects.create(
-            name="Test Label", desc="Test Label Description", project=self.project
+            name="Test Label",
+            desc="Test Label Description",
+            project=self.project,
         )
         imageset = ImageSet.objects.create(
-            name="Test ImageSet", desc="Test ImageSet Description", project=self.project
+            name="Test ImageSet",
+            desc="Test ImageSet Description",
+            project=self.project,
         )
         imageset.labels.add(label)
         self.assertEqual(imageset.name, "Test ImageSet")
@@ -46,10 +55,13 @@ class ModelTestCase(TestCase):
     def test_image_creation(self):
         """Test creating an Image"""
         imageset = ImageSet.objects.create(
-            name="Test ImageSet", desc="Test ImageSet Description", project=self.project
+            name="Test ImageSet",
+            desc="Test ImageSet Description",
+            project=self.project,
         )
         image = Image.objects.create(
-            filepath="/path/to/test/image.jpg", name="test_image.jpg"
+            filepath="/path/to/test/image.jpg",
+            name="test_image.jpg",
         )
         image.imageset.add(imageset)
         self.assertEqual(image.name, "test_image.jpg")
@@ -58,17 +70,24 @@ class ModelTestCase(TestCase):
     def test_annotation_creation(self):
         """Test creating an Annotation"""
         imageset = ImageSet.objects.create(
-            name="Test ImageSet", desc="Test ImageSet Description", project=self.project
+            name="Test ImageSet",
+            desc="Test ImageSet Description",
+            project=self.project,
         )
         label = Label.objects.create(
-            name="Test Label", desc="Test Label Description", project=self.project
+            name="Test Label",
+            desc="Test Label Description",
+            project=self.project,
         )
         image = Image.objects.create(
-            filepath="/path/to/test/image.jpg", name="test_image.jpg"
+            filepath="/path/to/test/image.jpg",
+            name="test_image.jpg",
         )
         image.imageset.add(imageset)
 
-        annotation = Annotation.objects.create(image=image, label=label, user=self.user)
+        annotation = Annotation.objects.create(
+            image=image, label=label, user=self.user, imageset=imageset
+        )
         self.assertEqual(annotation.image, image)
         self.assertEqual(annotation.label, label)
         self.assertEqual(annotation.user, self.user)
@@ -86,10 +105,13 @@ class ViewTestCase(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.project = Project.objects.create(
-            name="Test Project", desc="Test Description"
+            name="Test Project",
+            desc="Test Description",
         )
         self.project.users.add(self.user)
         self.client.login(username="testuser", password="testpass123")
@@ -103,10 +125,12 @@ class ViewTestCase(TestCase):
     def test_choose_img_set_view(self):
         """Test the image set selection view"""
         _ = ImageSet.objects.create(
-            name="Test ImageSet", desc="Test ImageSet Description", project=self.project
+            name="Test ImageSet",
+            desc="Test ImageSet Description",
+            project=self.project,
         )
         response = self.client.get(
-            reverse("sortIT:choose_img_set", kwargs={"project_id": self.project.pk})
+            reverse("sortIT:choose_img_set", kwargs={"project_id": self.project.pk}),
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Test ImageSet")
@@ -114,28 +138,37 @@ class ViewTestCase(TestCase):
     def test_label_view(self):
         """Test the label view"""
         imageset = ImageSet.objects.create(
-            name="Test ImageSet", desc="Test ImageSet Description", project=self.project
+            name="Test ImageSet",
+            desc="Test ImageSet Description",
+            project=self.project,
         )
         # Create at least 3 labels to avoid redirect to sort view
         label1 = Label.objects.create(
-            name="Test Label 1", desc="Test Label 1 Description", project=self.project
+            name="Test Label 1",
+            desc="Test Label 1 Description",
+            project=self.project,
         )
         label2 = Label.objects.create(
-            name="Test Label 2", desc="Test Label 2 Description", project=self.project
+            name="Test Label 2",
+            desc="Test Label 2 Description",
+            project=self.project,
         )
         label3 = Label.objects.create(
-            name="Test Label 3", desc="Test Label 3 Description", project=self.project
+            name="Test Label 3",
+            desc="Test Label 3 Description",
+            project=self.project,
         )
         imageset.labels.add(label1, label2, label3)
 
         # Create some test images
         image = Image.objects.create(
-            filepath="/path/to/test/image.jpg", name="test_image.jpg"
+            filepath="/path/to/test/image.jpg",
+            name="test_image.jpg",
         )
         image.imageset.add(imageset)
 
         response = self.client.get(
-            reverse("sortIT:label", kwargs={"imageset_id": imageset.pk})
+            reverse("sortIT:label", kwargs={"imageset_id": imageset.pk}),
         )
         # The response might be a redirect if there are no unlabeled images
         if response.status_code == 302:
@@ -148,7 +181,7 @@ class ViewTestCase(TestCase):
     def test_download_csv_view(self):
         """Test the download CSV view"""
         response = self.client.get(
-            reverse("sortIT:down_proj_csv", kwargs={"project_id": self.project.pk})
+            reverse("sortIT:down_proj_csv", kwargs={"project_id": self.project.pk}),
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv")
@@ -156,10 +189,12 @@ class ViewTestCase(TestCase):
     def test_sort_view(self):
         """Test the sort view"""
         imageset = ImageSet.objects.create(
-            name="Test ImageSet", desc="Test ImageSet Description", project=self.project
+            name="Test ImageSet",
+            desc="Test ImageSet Description",
+            project=self.project,
         )
         response = self.client.get(
-            reverse("sortIT:sort", kwargs={"imageset_id": imageset.pk})
+            reverse("sortIT:sort", kwargs={"imageset_id": imageset.pk}),
         )
         # May redirect if no images available to sort
         self.assertIn(response.status_code, [200, 302])
@@ -183,7 +218,9 @@ class SignalTestCase(TestCase):
     def test_user_preferences_created(self):
         """Test that UserPreferences is automatically created when a user is created"""
         user = User.objects.create_user(
-            username="newuser", email="new@example.com", password="newpass123"
+            username="newuser",
+            email="new@example.com",
+            password="newpass123",
         )
         self.assertTrue(UserPreferences.objects.filter(user=user).exists())
         user_pref = UserPreferences.objects.get(user=user)
@@ -194,7 +231,9 @@ class SignalTestCase(TestCase):
 class AdminTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
-            username="admin", email="admin@example.com", password="adminpass123"
+            username="admin",
+            email="admin@example.com",
+            password="adminpass123",
         )
         self.client = Client()
         self.client.login(username="admin", password="adminpass123")
@@ -202,7 +241,8 @@ class AdminTestCase(TestCase):
     def test_project_admin(self):
         """Test project admin functionality"""
         _ = Project.objects.create(
-            name="Admin Test Project", desc="Admin Test Project Description"
+            name="Admin Test Project",
+            desc="Admin Test Project Description",
         )
         response = self.client.get("/admin/sortIT/project/")
         self.assertEqual(response.status_code, 200)

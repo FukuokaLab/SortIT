@@ -6,3 +6,4 @@
 * [ ] handle annotation conflicts (overwriting image labels)
 * [ ] when deleting images on the admin page, also delete the file in media/
 * [ ] add guide about deploying production server
+* [ ] documentation
