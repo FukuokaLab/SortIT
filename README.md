@@ -73,7 +73,8 @@ DJANGO_SUPERUSER_EMAIL=admin@gmail.com
 DJANGO_SUPERUSER_PASSWORD=admin_pass
 ```
 
-you will have to add the address you use to connect to the server to `DJANGO_ALLOWED_HOSTS`. If connecting from the same machine, localhost is already added. Add new entries with a space separating them. Otherwise, you should be able to run the app with the above settings.
+You may have to add the address you use to connect to the server to `DJANGO_ALLOWED_HOSTS`. If connecting from the same machine, localhost is already added. Add new entries with a space separating them. Otherwise, you should be able to run the app with the above settings.
+For example, if your machine has the ip address 192.168.1.5, then you should add this to the allowed hosts so you can connect to 192.168.1.5:8000 in your browser.
 
 ## Development Server  
 
@@ -103,7 +104,12 @@ Example: `192.168.1.5:8000`.
 
 If you see the login page, the server is running correctly.
 
+> [!NOTE]
+> This setup is not suitable for production deployment over the internet. 
+> We will add documentation regarding deployment with gunicorn and docker.
+
 ---
+
 ## Using SortIT
 
 1. Creating a Project
