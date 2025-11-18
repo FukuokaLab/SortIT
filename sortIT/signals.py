@@ -6,6 +6,6 @@ from sortIT.models import UserPreferences
 
 
 @receiver(post_save, sender=User)
-def create_user_sort_settings(sender, instance, created, **kwargs):
+def create_user_sort_settings(sender, instance, created, **kwargs) -> None:
     if created:
         UserPreferences.objects.create(user=instance)

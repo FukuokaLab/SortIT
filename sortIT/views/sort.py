@@ -1,14 +1,32 @@
 import random
-from django.contrib.admin.views.decorators import staff_member_required
+
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseBadRequest
+from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 
 from sortIT.models import Annotation, Image, ImageSet, UserPreferences
 
 
 @login_required
-def sort(request, imageset_id):
+def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
+    """Render the sorting page for a specific image set.
+
+    This view selects a random subset of images that have not yet been
+    annotated by the current user, updates user preferences based on
+    POST data, and renders `sortIT/sort.html` with context information
+    such as progress, image size and the selected images.
+
+    Args:
+        request: The HTTP request object. Must contain an authenticated
+            user (enforced by `@login_required`).
+        imageset_id: Primary key of the :class:`~sortIT.models.ImageSet`
+            that the user wants to sort.
+
+    Returns:
+        HttpResponse: Rendered sorting page or a redirect to the labeling
+        mode or finish view if conditions are not met.
+
+    """
     # get specified image set
     imageset = ImageSet.objects.get(id=imageset_id)
 
@@ -17,23 +35,18 @@ def sort(request, imageset_id):
     labels = imageset.labels.all()
 
     # Check the number of labels linked to the ImageSet
-    if not (
-        labels.count() == 1
-        or (labels.count() == 2 and labels.filter(name="other").exists())
-    ):
-        # And Redirect to usual labeling mode View if there are > 2 labels
+    if labels.count() != 1:
+        # And Redirect to usual labeling mode View if there are > 1 labels
         return redirect("sortIT:label", imageset_id=imageset_id)
 
     # count total number of images
     total_images = images.count()
 
-    # Get the label linked to the ImageSet that is not "other"
-    label = labels.exclude(name="other").first()
+    # Get the label linked to the ImageSet (should only be one)
+    label = labels.first()
 
     # Choose un-sorted images
-    unsorted_images = images.exclude(
-        annotations__user=request.user, sortedsets=imageset_id
-    )
+    unsorted_images = images.exclude(annotations__user=request.user)
     if unsorted_images:
         # number of images to show
         prefs = UserPreferences.objects.get(user=request.user)
@@ -41,8 +54,8 @@ def sort(request, imageset_id):
         imsize = prefs.imsize
 
         if request.method == "POST":
-            n_images = int(request.POST.get("nimgs", n_images))
-            imsize = int(request.POST.get("imsize", imsize))
+            n_images = int(request.POST["nimgs"])
+            imsize = int(request.POST["imsize"])
 
             prefs.nimgs = n_images
             prefs.imsize = imsize
@@ -50,7 +63,8 @@ def sort(request, imageset_id):
 
         # Randomly select n_images
         images = random.sample(
-            list(unsorted_images), min(n_images, unsorted_images.count())
+            list(unsorted_images),
+            min(n_images, unsorted_images.count()),
         )
     else:
         # If all images are sorted, redirect to finish
@@ -76,36 +90,43 @@ def sort(request, imageset_id):
 
 @login_required
 def sort_post(request):
+    """Handle the form submission from the sorting page.
+
+    Creates :class:`~sortIT.models.Annotation` objects for the images
+    shown on the page depending on whether the user selected them to
+    keep or remove. Selected images are given `None` as the label
+    (indicating the user chose to discard them), while unselected
+    images receive the current label of the :class:`~sortIT.models.ImageSet`.
+
+    The view then redirects back to the next page of images to be sorted.
+
+    Args:
+        request: The HTTP request object containing POST data.
+
+    Returns:
+        HttpResponse: Redirects to the next sorting page or
+        `HttpResponseBadRequest` for non-POST requests.
+
+    """
     if request.method == "POST":
         imageset_id = request.POST["imageset"]
         selected_images = request.POST["selected_images"].split(",")
 
         imageset = ImageSet.objects.get(id=imageset_id)
-        labels = imageset.labels.all()
-
-        # Get 'non-other' label which linked to the image-set
-        label = labels.exclude(name="other").first()
+        label = imageset.labels.first()
 
         # Get all image id displayed
         displayed_images = request.POST["displayed_images"].split(",")
 
-        # set selected images label to None
         for image_id in displayed_images:
             image = Image.objects.get(id=image_id)
-            image.sortedsets.add(imageset)
-            if (
-                image_id not in selected_images
-                and image.annotations.filter(user=request.user) is None
-            ):
-                Annotation.objects.update_or_create(
-                    image=image, label=label, user=request.user
-                )
-            else:
-                Annotation.objects.update_or_create(
-                    image=image, label=None, user=request.user
-                )
+            Annotation.objects.create(
+                image=image,
+                label=None if image_id in selected_images else label,
+                user=request.user,
+                imageset=imageset,
+            )
 
         # Redirect to the next page
         return redirect("sortIT:sort", imageset_id=imageset_id)
-    else:
-        return HttpResponseBadRequest()
+    return HttpResponseBadRequest()

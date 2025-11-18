@@ -10,10 +10,10 @@
   - [Tiling WSI with QuPath](#tiling-wsi-with-qupath)
   - [MIXTURE Method](#mixture-method)
   - [Basic Configuration](#basic-configuration)
-  - [Adding Features](#adding-features)
   - [File Structure & Key Files](#file-structure-key-files)
-  - [Running Tests](#running-tests)
+  - [Adding Features](#adding-features)
   - [Troubleshooting](#troubleshooting)
+    - [Assumptions](#assumptions)
   - [LICENCE](#licence)
 <!--toc:end-->
 
@@ -163,7 +163,6 @@ tile_exporter.annotatedTilesOnly(true)
 tile_exporter.writeTiles(out_path)
 ```
 
-
 ---
 
 ## MIXTURE Method
@@ -196,23 +195,6 @@ Typical things you might edit:
 | Static / media file URLs | `STATIC_URL`, `MEDIA_URL` |
 | Logging to a file | `LOGGING` |
 
----
-
-## Adding Features  
-
-Below are common feature ideas and the files you’ll touch to add them.
-
-| Feature | Files to Edit | What to do (brief) |
-|---------|---------------|--------------------|
-| **Timer for annotation time** | `sortIT/models.py`, `sortIT/views/`, `sortIT/templates/annotate.html`, optional `static/js/annotate_timer.js` | Add a `DurationField` to store time spent. In the view, start a timer when the page loads and capture the elapsed time when the user saves or navigates away. In the template, embed a small JavaScript snippet that reports the elapsed time back to the server. |
-| **Custom user permissions** | `users/models.py`, `project/permissions.py`, `sortIT/views/` | Subclass Django’s `User` model or create a profile. Use Django’s permission system to gate access to certain image sets. |
-| **Bulk upload of image sets** | `sortIT/management/commands/upload_imageset.py`, `sortIT/forms.py` | Write a custom management command to ingest CSV/JSON descriptors. In the form, provide a file input that triggers the command. |
-
-> **Tip**: When changing almost anything in `models.py`, remember to run  
-> ```bash
-> python manage.py makemigrations
-> python manage.py migrate
-> ```  
 
 ---
 
@@ -226,7 +208,7 @@ SortIT
 ├── logs/
 ├── media/
 ├── project/
-│   ├── settings.py
+│   └── settings.py
 ├── sortIT/
 │   ├── migrations/
 │   ├── templates/
@@ -335,8 +317,21 @@ SortIT
 
 ---
 
-## Running Tests  
+## Adding Features  
 
+Below are common feature ideas and the files you’ll touch to add them.
+
+| Feature | Files to Edit | What to do (brief) |
+|---------|---------------|--------------------|
+| **Timer for annotation time** | `sortIT/models.py`, `sortIT/views/`, `sortIT/templates/annotate.html`, optional `static/js/annotate_timer.js` | Add a `DurationField` to store time spent. In the view, start a timer when the page loads and capture the elapsed time when the user saves or navigates away. In the template, embed a small JavaScript snippet that reports the elapsed time back to the server. |
+| **Custom user permissions** | `users/models.py`, `project/permissions.py`, `sortIT/views/` | Subclass Django’s `User` model or create a profile. Use Django’s permission system to gate access to certain image sets. |
+| **Bulk upload of image sets** | `sortIT/management/commands/upload_imageset.py`, `sortIT/forms.py` | Write a custom management command to ingest CSV/JSON descriptors. In the form, provide a file input that triggers the command. |
+
+> **Tip**: When changing almost anything in `models.py`, remember to run  
+> ```bash
+> python manage.py makemigrations
+> python manage.py migrate
+> ```  
 The repository ships with basic tests in `sortIT/tests.py`.
 
 ```bash
@@ -356,6 +351,11 @@ If you add new features, create a corresponding test.
 | Browser shows “Could not connect” | Server not running or firewall blocking | Confirm `runserver` output, check network connectivity, ensure firewall allows the port |
 | Database errors on first run | Migrations missing | `python manage.py makemigrations` and `python manage.py migrate` |
 | Static files not loading | `STATIC_URL` misconfigured | Check `STATIC_URL` in settings |
+
+
+### Assumptions
+
+- It is assumed that each uploaded tile has a unique filename. Problems could arise if two files share the same filename.
 
 ---
 
