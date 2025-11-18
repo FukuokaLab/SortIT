@@ -1,16 +1,20 @@
 # SortIT
 
 <!--toc:start-->
-- [Backgound](#backgound)
-- [Getting Started](#getting-started)
-- [Env files](#env-files)
-- [Development Server](#development-server)
-- [Basic Configuration](#basic-configuration)
-- [Adding Features](#adding-features)
-- [File Structure & Key Files](#file-structure-key-files)
-- [Running Tests](#running-tests)
-- [Troubleshooting](#troubleshooting)
-- [LICENCE](#licence)
+- [SortIT](#sortit)
+  - [Backgound](#backgound)
+  - [Getting Started](#getting-started)
+  - [Env files](#env-files)
+  - [Development Server](#development-server)
+  - [Using SortIT](#using-sortit)
+  - [Tiling WSI with QuPath](#tiling-wsi-with-qupath)
+  - [MIXTURE Method](#mixture-method)
+  - [Basic Configuration](#basic-configuration)
+  - [Adding Features](#adding-features)
+  - [File Structure & Key Files](#file-structure-key-files)
+  - [Running Tests](#running-tests)
+  - [Troubleshooting](#troubleshooting)
+  - [LICENCE](#licence)
 <!--toc:end-->
 
 Easy image labeling tool for multiple users.
@@ -135,6 +139,33 @@ Either at the project level, or for individual image sets, you can click "Export
 > Please note that this app does not create patches/tiles from WSI. You must do this separately, then you can upload the patches to this page for labeling.
 
 ---
+
+## Tiling WSI with QuPath
+
+Here is a code snippet which should be able to export patches from QuPath
+
+```groovy
+// Author: Tom Bisson
+// Affiliation: Institute of Pathology, Charité-Universitätsmedizin Berlin, Berlin, Germany
+// Date: January 17, 2024
+// Instructions: First higlight the area of tissue that should be exported with an annotation tool
+
+int patch_size = 224
+def image_extension = ".png"
+def image_data = getCurrentImageData()
+
+def out_path = "INSERT PATH HERE e.g. C:\\Users\\example\\Documents\\images for windows"
+
+tile_exporter = new TileExporter(image_data)
+tile_exporter.imageExtension(image_extension)
+tile_exporter.tileSize(patch_size)
+tile_exporter.annotatedTilesOnly(true)
+tile_exporter.writeTiles(out_path)
+```
+
+
+---
+
 ## MIXTURE Method
 
 Similar to the method described in the [MIXTURE paper (W. Uegami et al 2022)](https://www.nature.com/articles/s41379-022-01025-7), one way to use this app is as follows:
