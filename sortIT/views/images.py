@@ -1,11 +1,10 @@
 import datetime
-import os
+import random
 from io import BytesIO
 from pathlib import Path
-import random
 
-import PIL.Image
 import matplotlib.pyplot as plt
+import PIL.Image
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
@@ -15,7 +14,7 @@ from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
 )
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.template.response import TemplateResponse
 
 from sortIT.forms import ImageForm
@@ -48,15 +47,18 @@ def make_montage(project):
             ax.imshow(images[i])
 
     plt.savefig(
-        f"{settings.MEDIA_ROOT}/montage_{project.id}.jpg", bbox_inches="tight", dpi=100
+        f"{settings.MEDIA_ROOT}/montage_{project.id}.jpg",
+        bbox_inches="tight",
+        dpi=100,
     )
+    plt.close()
 
 
 def show_montage(request, project_id):
     if request.method == "GET":
         try:
             response = FileResponse(
-                open(f"{settings.MEDIA_ROOT}/montage_{project_id}.jpg", "rb")
+                open(f"{settings.MEDIA_ROOT}/montage_{project_id}.jpg", "rb"),
             )
         except FileNotFoundError:
             print(f"No montage for project {Project.objects.get(id=project_id)}")
@@ -68,8 +70,7 @@ def show_montage(request, project_id):
 
 def write_file(img_dst, jpeg_img):
     with open(img_dst, "wb+") as dst:
-        for chunk in jpeg_img.chunks():
-            dst.write(chunk)
+        dst.writelines(jpeg_img.chunks())
 
 
 def process_image(img, imageset_id):
@@ -89,10 +90,7 @@ def process_image(img, imageset_id):
             with BytesIO() as output_io:
                 try:
                     # if the image size is > 15KB save image with quality 75 to save the storage
-                    if img_io.tell() < 15 * 1024:
-                        quality = 100
-                    else:
-                        quality = 75
+                    quality = 100 if img_io.tell() < 15 * 1024 else 75
 
                     pil_img.save(output_io, format="JPEG", quality=quality)
                     output_io.seek(0)
@@ -129,19 +127,20 @@ def process_image(img, imageset_id):
 @staff_member_required
 def image_upload(request, imageset_id):
     imageset = ImageSet.objects.get(id=imageset_id)
-    project = imageset.project
-    form = ImageForm()
     Path(settings.MEDIA_ROOT).mkdir(exist_ok=True)
     if request.method == "POST":
         form = ImageForm(request.POST, request.FILES)
         if form.is_valid():
+            project = imageset.project
+
             images = request.FILES.getlist("image")
             images.extend(request.FILES.getlist("image-dir"))
+
             for img in images:
-                # Check for an existing image with the same original filename in this project
                 original_name = Path(img._get_name())
                 existing = Image.objects.filter(
-                    imageset__project=project, name=original_name
+                    imageset__project=project,
+                    name=original_name,
                 ).first()
                 if existing:
                     # Duplicate: just associate the new imageset with this image
@@ -152,11 +151,9 @@ def image_upload(request, imageset_id):
 
             make_montage(project)
             return redirect("sortIT:choose_img_set", project_id=project.id)
-        else:
-            return HttpResponseBadRequest()
     else:
         context = {
             "imageset": imageset,
-            "form": form,
+            "form": ImageForm(),
         }
-        return TemplateResponse(request, "sortIT/upload.html", context)
+    return render(request, "sortIT/upload.html", context)

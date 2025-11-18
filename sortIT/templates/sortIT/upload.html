@@ -11,9 +11,9 @@
         Upload to <b>{{ imageset.name }}</b>
       </h4>
       <div class="input-group my-3">
-        <label class="input-group-text btn btn-info"
+        <label class="input-group-text btn btn-primary"
                for="image-dir"
-               style="width: 10%">
+               style="width: 15%">
           Folders
         </label>
         <input type="file"
@@ -25,9 +25,9 @@
                webkitdirectory />
       </div>
       <div class="input-group">
-        <label class="input-group-text btn btn-success"
+        <label class="input-group-text btn btn-primary"
                for="image"
-               style="width: 10%">
+               style="width: 15%">
           Files
         </label>
         <input type="file"
@@ -37,7 +37,7 @@
                accept="image/png, image/jpeg"
                multiple />
       </div>
-      <div class="m-2">
+      <div class="m-2" id="dropzone-div">
         <div class="dropzone"
              id="dropzone"
              style="border: 2px dashed #000000;
@@ -62,8 +62,15 @@
         </p>
       </div>
       <div id="progress-container" hidden>
-        <progress id="progress-bar" value="0" max="100"></progress>
-        <span id="status"></span>
+        <div class="progress my-5" style="height: 25px;">
+          <div id="progress-bar"
+               class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+               role="progressbar"
+               style="width: 0%"
+               aria-valuenow="0"
+               aria-valuemax="100">
+          </div>
+        </div>
       </div>
     </div>
   </form>
@@ -74,10 +81,13 @@
     var uploadButton = document.getElementById("upload-button");
     var uploadForm = document.getElementById("upload-form");
     var progressBar = document.getElementById("progress-bar");
-    var status = document.getElementById("status");
     var progressContainer = document.getElementById("progress-container");
     var clearButton = document.getElementById("clear-button");
-    var bottomButtons = document.getElementById("bottom-btns")
+    var bottomButtons = document.getElementById("bottom-btns");
+    var dropzoneDiv = document.getElementById("dropzone-div");
+    const BATCH_SIZE = 256;
+    let cumulativeLoaded = 0;
+    let totalSize = 0;
 
     dropzone.ondragover = function(e) {
       e.preventDefault();
@@ -93,7 +103,6 @@
       return false;
     };
 
-    // When file is dropped...
     dropzone.ondrop = async (e) => {
       e.preventDefault();
 
@@ -108,7 +117,6 @@
         imageCount++;
       }
 
-      // check if the files are images
       var imageRegex = /^image\/(png|jpg|jpeg)$/;
 
       var addFileIfUnique = (file) => {
@@ -158,9 +166,7 @@
                 if (imageRegex.test(file.type)) {
                   addFileIfUnique(file);
                 }
-              }
-              // recursively
-              else if (entry.isDirectory) {
+              } else if (entry.isDirectory) {
                 var subfolder = await getEntries(entry);
                 await addFolderImages(subfolder);
               }
@@ -182,50 +188,66 @@
       console.log("Number of images: " + imageCount);
     };
 
-    // Push SUBMIT button
-    uploadButton.onclick = function(e) {
-      e.preventDefault();
+    function uploadBatch(formData, onBatchComplete) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-      // if some file specified
-      if (image.files.length > 0 || imageDir.files.length > 0) {
-        var formData = new FormData(uploadForm);
-        var xhr = new XMLHttpRequest();
-
-        bottomButtons.hidden = true;
-        // reveal progress container
-        progressContainer.hidden = false;
-        progressBar.value = 0;
-        status.innerHTML = "";
         xhr.upload.onprogress = function(e) {
-          // update progress bar
-          progressBar.value = Math.round((e.loaded / e.total) * 100);
-          status.innerHTML =
-            "Uploaded " +
-            e.loaded +
-            " bytes of " +
-            e.total +
-            " (" +
-            progressBar.value +
-            "%)";
-        };
-
-        xhr.onload = function() {
-          if (xhr.status == 200) {
-            window.location.href = "/sortIT/";
+          cumulativeLoaded += e.loaded;
+          const percent = Math.round(Math.min((cumulativeLoaded / totalSize) * 100, 100));
+          progressBar.style.width = percent.toString() + "%";
+          progressBar.setAttribute("aria-valuenow", percent);
+          if (percent < 100) {
+            progressBar.innerHTML = `Uploading: ${percent}%`;
           } else {
-            status.innerHTML = "Upload failed: " + xhr.status;
+            progressBar.innerHTML = "Done!";
           }
         };
 
-        xhr.onerror = function() {
-          status.innerHTML = "Upload failed: network error";
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            if (onBatchComplete) onBatchComplete();
+            resolve();
+          } else {
+            reject(`Batch failed: ${xhr.status}`);
+          }
         };
-        xhr.onabort = function() {
-          status.innerHTML = "Upload aborted";
-        };
+        xhr.onerror = () => reject('Network error');
+        xhr.onabort = () => reject('Upload aborted');
 
         xhr.open("POST", uploadForm.action);
         xhr.send(formData);
+      });
+    }
+
+    async function uploadAllFiles(files) {
+      totalSize = files.reduce((acc, f) => acc + f.size, 0);
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        const formData = new FormData(uploadForm);
+        formData.delete("image");
+        formData.delete("image-dir");
+        batch.forEach((f) => formData.append("image", f, f.name));
+
+        await uploadBatch(formData, () => {
+          // progress updated in onprogress
+        });
+      }
+      window.location.href = "/sortIT/";
+    }
+
+    uploadButton.onclick = function(e) {
+      e.preventDefault();
+
+      if (image.files.length > 0 || imageDir.files.length > 0) {
+        progressContainer.hidden = false;
+        bottomButtons.hidden = true;
+        dropzoneDiv.hidden = true;
+        const allFiles = [...image.files, ...imageDir.files];
+        uploadAllFiles(allFiles).catch(err => {
+          progressBar.innerHTML = err;
+          console.error(err);
+        });
       } else {
         alert("Please drop some image files first.");
       }
