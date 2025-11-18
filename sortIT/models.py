@@ -3,8 +3,8 @@ from django.db import models
 
 
 class Project(models.Model):
-    name = models.CharField(max_length=100, default=None)
-    desc = models.TextField("Description", default=None, blank=True)
+    name = models.CharField(max_length=100)
+    desc = models.TextField("Description", blank=True)
     users = models.ManyToManyField(User, related_name="projects")
 
     def __str__(self):
@@ -13,7 +13,7 @@ class Project(models.Model):
 
 class Label(models.Model):
     name = models.CharField(max_length=100)
-    desc = models.TextField("Description", default=None, blank=True)
+    desc = models.TextField("Description", blank=True)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="labels"
     )
@@ -24,7 +24,7 @@ class Label(models.Model):
 
 class ImageSet(models.Model):
     name = models.CharField(max_length=100)
-    desc = models.TextField("Description", default=None, blank=True)
+    desc = models.TextField("Description", blank=True)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="imagesets"
     )
@@ -36,7 +36,6 @@ class ImageSet(models.Model):
 
 class Image(models.Model):
     imageset = models.ManyToManyField(ImageSet, related_name="images")
-    sortedsets = models.ManyToManyField(ImageSet)
     filepath = models.FilePathField(editable=False)
     name = models.CharField(max_length=100)
 
@@ -50,6 +49,8 @@ class Annotation(models.Model):
     )
     label = models.ForeignKey(Label, on_delete=models.CASCADE, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    imageset = models.ForeignKey(ImageSet, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True, editable=False)
 
 
 class UserPreferences(models.Model):
