@@ -1,7 +1,6 @@
 import csv
 import datetime
 import io
-from pathlib import Path
 import zipfile
 
 from django.contrib import admin
@@ -9,7 +8,8 @@ from django.db.models import Count
 from django.http import HttpResponse, HttpResponseBadRequest, StreamingHttpResponse
 from django.utils.html import format_html_join
 
-from .models import Annotation, Image, ImageSet, Label, User, Project
+from .models import Annotation, Image, ImageSet, Label, Project
+from .utils import generate_csv_stream
 
 
 @admin.register(Project)
@@ -34,7 +34,7 @@ class ProjectAdmin(admin.ModelAdmin):
         current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         if len(queryset) == 1:
             project = queryset[0]
-            csv_generator = generate_csv_stream(project=project)
+            csv_generator = generate_csv_stream(project)
             response = StreamingHttpResponse(csv_generator, content_type="text/csv")
             response["Content-Disposition"] = (
                 f'attachment; filename="{project}_{current_datetime}.csv"'
@@ -48,7 +48,7 @@ class ProjectAdmin(admin.ModelAdmin):
                     # write header
                     header_row = ["Image"] + [u.username for u in project.users.all()]
                     writer.writerow(header_row)
-                    for row in generate_csv_stream(project=project):
+                    for row in generate_csv_stream(project):
                         writer.writerow(row.split(","))
                     # add to zip
                     zf.writestr(f"{project}_{current_datetime}.csv", csv_io.getvalue())
@@ -71,40 +71,6 @@ class LabelAdmin(admin.ModelAdmin):
 class ImageAdmin(admin.ModelAdmin):
     list_display = ["id", "name"]
     list_filter = ["imageset", "imageset__project"]
-
-
-def generate_csv_stream(separator=",", image_set=None, project=None):
-    """
-    Generator function to stream CSV data.
-    Accepts either a single image_set or a whole project.
-    """
-    # Determine which images to include
-    if project is not None:
-        images = Image.objects.filter(imageset__project=project)
-        header_row = ["Images"] + [user.username for user in project.users.all()]
-    elif image_set is not None:
-        images = Image.objects.filter(imageset=image_set)
-        header_row = ["Images"] + [
-            user.username for user in image_set.project.users.all()
-        ]
-    else:
-        # No filtering – return an empty generator
-        return
-    # Header
-    yield separator.join(header_row) + "\n"
-
-    for image in images:
-        ext = Path(image.filepath).name.split(".")[-2]
-        row = [Path(image.name).stem.split("___")[0] + "." + ext]
-        annotations = Annotation.objects.filter(image=image, label__isnull=False)
-        annotation_dict = {
-            annotation.user.username: annotation.label.name
-            for annotation in annotations
-            if annotation.label is not None
-        }
-        for user in User.objects.all():
-            row.append(annotation_dict.get(user.username, ""))
-        yield separator.join(row) + "\n"
 
 
 @admin.register(ImageSet)
@@ -130,7 +96,7 @@ class ImageSetAdmin(admin.ModelAdmin):
         if request.method == "POST":
             current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             imageset = queryset[0]
-            csv_generator = generate_csv_stream(separator=",", image_set=imageset)
+            csv_generator = generate_csv_stream(imageset)
             response = StreamingHttpResponse(csv_generator, content_type="text/csv")
             response["Content-Disposition"] = (
                 f'attachment; filename="{imageset}_{current_datetime}.csv"'

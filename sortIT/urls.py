@@ -2,7 +2,6 @@ from django.urls import path
 
 from sortIT.views import finish, images, imageset_list, label, project_list, sort
 
-
 app_name = "sortIT"
 urlpatterns = [
     path("", project_list.choose_proj, name="choose_proj"),
@@ -12,7 +11,9 @@ urlpatterns = [
         name="down_proj_csv",
     ),
     path(
-        "project/<int:project_id>", imageset_list.choose_img_set, name="choose_img_set"
+        "project/<int:project_id>",
+        imageset_list.choose_img_set,
+        name="choose_img_set",
     ),
     path(
         "imagesets/<int:imageset_id>/download_csv",
