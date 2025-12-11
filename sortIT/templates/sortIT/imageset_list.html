@@ -9,32 +9,35 @@
              class="form-control"
              autofocus>
     </div>
-    <div class="row my-2">
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-2 g-4">
       {% for imageset in object_list %}
         <div class="col card-box">
-          <div class="card mb-3" style="max-width: 540px;">
-            <div class="row g-0 align-items-center">
+          <div class="card h-100">
+            <div class="d-flex align-items-start">
               {% if imageset.images.first %}
                 <div class="col-md-4">
                   <img src="{% url 'sortIT:show_img' imageset.images.first.id %}"
-                       class="img-fluid rounded-start mx-2"
+                       class="img-fluid rounded-start me-3 flex-shrink-0"
+                       style="width: 150px;
+                              height: auto"
                        alt="{{ imageset.id }}">
                 </div>
               {% endif %}
-              <div class="col">
+              <div class="flex-grow-1">
                 <div class="card-body">
                   <h5 class="card-title d-flex justify-content-between">
                     <span>{{ imageset.name }}</span>
                     <span class="badge rounded-pill text-bg-primary">{{ imageset.images.count }}</span>
                   </h5>
-                  <p class="card-text text-body-secondary">
-                    {{ imageset.desc }}
-                  </p>
-                  <div class="d-flex gap-1">
+                  <!-- <p class="card-text text-body-secondary"> -->
+                  <!--   {{ imageset.desc }} -->
+                  <!-- </p> -->
+                  <div class="d-flex gap-1 justify-content-center">
                     <a href="{% url 'sortIT:label' imageset.id %}"
-                       class="btn btn-primary flex-grow-1">Select</a>
+                       class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center">
+                    Select</a>
                     <a href="{% url 'sortIT:upload' imageset.id %}"
-                       class="btn btn-outline-secondary">
+                       class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center">
                       <img src="{% static 'upload.svg' %}" alt="upload" style="max-height: 20px">
                     Upload </a>
                     <a href="{% url 'sortIT:down_imset_csv' imageset.id %}"
@@ -42,38 +45,28 @@
                       <img src="{% static 'download.svg' %}"
                            alt="download"
                            style="max-height: 20px">
-                    Export CSV </a>
+                    Export CSV</a>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
 </div>
 <script>
   function filterCards() {
-    let input = document.getElementById("search-input").value;
-    input = input.toLowerCase();
-
+    let input = document.getElementById("search-input").value.toLowerCase();
     let cards = document.getElementsByClassName("card-box");
 
     for (let i = 0; i < cards.length; i++) {
-      let cardText = cards[i].innerText;
-
-      cardText = cardText.toLowerCase();
-
-      if (cardText.includes(input)) {
-        cards[i].style.display = "";
-      } else {
-        cards[i].style.display = "none";
-      }
+      const cardText = cards[i].innerText.toLowerCase();
+      cards[i].style.display = cardText.includes(input) ? "" : "none";
     }
   }
 
-  const searchInput = document.getElementById("search-input");
-  searchInput.addEventListener("input", filterCards);
+  document.getElementById("search-input").addEventListener("input", filterCards);
 </script>
 {% endblock %}
