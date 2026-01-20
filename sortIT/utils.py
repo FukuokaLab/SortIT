@@ -39,21 +39,45 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
     # Determine which images to include
     if isinstance(obj, Project):
         project = obj
-        users = project.users.all()
-        images = Image.objects.filter(imageset__project=project)
+        users = list(project.users.all())
+        images = (
+            Image.objects.filter(
+                imageset__project=project,
+                annotations__isnull=False,
+            )
+            .distinct()
+            .order_by("id")
+        )
     else:  # isinstance(obj, ImageSet):
         imageset = obj
-        users = imageset.project.users.all()
-        images = Image.objects.filter(imageset=imageset)
+        project = imageset.project
+        users = list(imageset.project.users.all())
+        images = (
+            Image.objects.filter(
+                imageset=imageset,
+                annotations__isnull=False,
+            )
+            .distinct()
+            .order_by("id")
+        )
+
     header_row = ["Image"] + [user.username for user in users]
     yield sep.join(header_row) + "\n"
 
     for image in images:
-        anns = Annotation.objects.filter(image=image, user__in=users)
-        row = [image.name] + [
-            anns.get(user=user).label.name
-            if anns.filter(user=user, label=True).exists()
-            else ""
-            for user in users
-        ]
+        anns = Annotation.objects.filter(
+            image=image,
+            user__in=users,
+            imageset__project=project,
+        ).select_related("label", "user")
+
+        ann_map = {}
+        for ann in anns:
+            ann_map.setdefault(ann.image_id, {}).setdefault(ann.user_id, []).append(
+                ann.label.name if ann.label else ""
+            )
+
+        row = ann_map.get(image.id, {})
+        row = [image.name] + ["|".join(row.get(u.id, [])) for u in users]
+
         yield sep.join(row) + "\n"
