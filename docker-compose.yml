@@ -5,7 +5,6 @@ services:
       - "8000:8000"
     volumes:
       - ./media:/app/media
-      - ./logs:/app/logs
       - sqlite_data:/app/data
     env_file:
       - .env

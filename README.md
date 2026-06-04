@@ -4,14 +4,20 @@
 - [SortIT](#sortit)
   - [Backgound](#backgound)
   - [Getting Started](#getting-started)
+    - [Local Development](#local-development)
+    - [Docker](#docker)
   - [Env files](#env-files)
   - [Development Server](#development-server)
   - [Using SortIT](#using-sortit)
+  - [Data Model](#data-model)
   - [Tiling WSI with QuPath](#tiling-wsi-with-qupath)
   - [MIXTURE Method](#mixture-method)
   - [Basic Configuration](#basic-configuration)
   - [File Structure & Key Files](#file-structure-key-files)
+  - [Scripts (`scripts/`)](#scripts-scripts)
+  - [Management Commands](#management-commands)
   - [Adding Features](#adding-features)
+  - [Production Deployment](#production-deployment)
   - [Troubleshooting](#troubleshooting)
     - [Assumptions](#assumptions)
   - [LICENCE](#licence)
@@ -27,6 +33,13 @@ SortIT is a web application that allows multiple users to label the same image s
 
 ## Getting Started  
 
+1. **Clone the repository**  
+2. **Install the required packages** (not necessary for docker)
+3. **Configure `.env`** — at minimum set a unique `SECRET_KEY`
+4. **Apply database migrations**  
+5. **Create a super‑user (for admin access)**  
+6. **Run the app server**
+
 ### Local Development
 
 ```bash
@@ -35,8 +48,9 @@ git clone https://github.com/FukuokaLab/SortIT.git
 cd SortIT
 
 # Install dependencies
-uv sync
-source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
@@ -51,6 +65,9 @@ python manage.py createsuperuser
 python manage.py runserver 0.0.0.0:8000
 ```
 
+> [!NOTE]
+> This project is also compatible with [uv](https://docs.astral.sh/uv/) — replace the install step above with `uv sync` and replace `python` with `uv run`.
+
 ### Docker
 
 ```bash
@@ -59,48 +76,62 @@ cp .env.example .env
 # Edit .env — set SECRET_KEY, DEBUG=False, DJANGO_ALLOWED_HOSTS
 
 # Start the app
-docker compose up -d
+docker compose up --build -d
 
 # Create a superuser
 docker compose exec web python manage.py createsuperuser
 ```
 
-1. **Clone the repository**  
-2. **Install the required packages** ([uv](https://docs.astral.sh/uv/#installation) recommended)
-3. **Configure `.env`** — at minimum set a unique `SECRET_KEY`
-4. **Apply database migrations**  
-5. **Create a super‑user (for admin access)**  
-6. **Run the app server**
+Stop the running webapp with:
 
-Dependencies are listed in the `pyproject.toml` file. Pip can also be used to install these dependencies. 
+```bash
+docker compose down
+```
+
+> The current docker-compose.yaml has a develop section. This will cause the 
+> container to be restarted on each code change. Remove or comment out this section
+> to remove this behavior.
+
+When using docker, all commands must be run inside the container. For all python commands described below, prefix the command with `docker compose exec web`
+
+You may have to prefix all docker commands with `sudo`
+
+### Docker image from ghcr
+
+This project has been made available online.
+
+```bash
+docker pull ghcr.io/fukuokalab/sortit:latest
+```
 
 ---
 
 ## Env files
 
-example of .env (for development)
+Copy `.env.example` to `.env` and edit:
+
+```
+DEBUG=True                    # False in production
+SECRET_KEY=change-me          # Generate a random key
+DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [your-hostname]
+```
+
+SQLite is the default — no database configuration needed. To use PostgreSQL instead, uncomment and set:
+
 ```
 SQL_ENGINE=django.db.backends.postgresql
-POSTGRES_NAME=postgres
-POSTGRES_DB=sortimg
+POSTGRES_DB=sortit
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=pass_for_db
+POSTGRES_PASSWORD=change-me
 SQL_HOST=db
 SQL_PORT=5432
-SECRET_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1
-DEBUG=True
-SERVER_NAME=my_host_name.com
-
-DJANGO_SUPERUSER_USERNAME=admin
-DJANGO_SUPERUSER_EMAIL=admin@gmail.com
-DJANGO_SUPERUSER_PASSWORD=admin_pass
 ```
 
-You may have to add the address you use to connect to the server to `DJANGO_ALLOWED_HOSTS`. If connecting from the same machine, localhost is already added. Add new entries with a space separating them. Otherwise, you should be able to run the app with the above settings.
-For example, if your machine has the ip address 192.168.1.5, then you should add this to the allowed hosts so you can connect to 192.168.1.5:8000 in your browser.
+All variables are listed in `.env.example`.
 
 ## Development Server  
+
+If using the docker version with docker-compose, skip to the next section.
 
 To start the Django development server that listens on all network interfaces:
 
@@ -111,6 +142,7 @@ python manage.py runserver 0.0.0.0:8000
 - `0.0.0.0` exposes the server on your machine’s IP address (e.g., 192.168.1.5).  
 - `8000` is the port number; you can pick any free port if 8000 is occupied.
 
+
 **Connecting from a Browser**  
 Open a web browser on the same machine and type the following into the address bar:  
 
@@ -118,7 +150,7 @@ Open a web browser on the same machine and type the following into the address b
 localhost:8000
 ```  
 
-or, if you want to access from another device (on the same network), use the IP address:
+or, if you want to access from another device (on the same network or VPN), use the IP address:
 
 ```
 <your‑machine‑ip>:8000
@@ -156,6 +188,27 @@ Either at the project level, or for individual image sets, you can click "Export
 
 > [!IMPORTANT]
 > Please note that this app does not create patches/tiles from WSI. You must do this separately, then you can upload the patches to this page for labeling.
+
+---
+
+## Data Model
+
+| Model | Relationships |
+|-------|--------------|
+| **Project** | has many ImageSets, has many Labels, assigned to many Users |
+| **ImageSet** | belongs to one Project, has many Labels, contains many Images |
+| **Image** | belongs to many ImageSets |
+| **Label** | belongs to one Project |
+| **Annotation** | one Image + one User + one Label (nullable) + one ImageSet |
+| **User** | belongs to many Projects (Django's built-in User model) |
+
+```
+Project ──1:N── ImageSet ──N:M── Image
+Project ──1:N── Label
+Project ──N:M── User
+Annotation ──1:1── Image, User, ImageSet
+Annotation ──1:1── Label (nullable)
+```
 
 ---
 
@@ -218,48 +271,6 @@ Typical things you might edit:
 ---
 
 ## File Structure & Key Files  
-
-```
-SortIT
-├── account/
-├── assets/
-├── doc/
-├── logs/
-├── media/
-├── project/
-│   └── settings.py
-├── sortIT/
-│   ├── migrations/
-│   ├── templates/
-│   │   └── sortIT/
-│   │       ├── download.html
-│   │       ├── imageset_list.html
-│   │       ├── label.html
-│   │       ├── project_list.html
-│   │       ├── sort.html
-│   │       ├── thankyou.html
-│   │       └── upload.html
-│   ├── apps.py
-│   ├── forms.py
-│   ├── models.py
-│   ├── signals.py
-│   ├── tests.py
-│   ├── urls.py
-│   └── views/
-│       ├── finish.py
-│       ├── imageset_list.py
-│       ├── images.py
-│       ├── label.py
-│       ├── project_list.py
-│       └── sort.py
-├── static/
-│   └── admin/
-├── templates/
-│   ├── admin/
-│   └── base.html
-├── manage.py
-└── pyproject.toml
-```
 
 **Top‑level files**
 
@@ -336,6 +347,27 @@ SortIT
 
 ---
 
+## Scripts (`scripts/`)
+
+| Script | Purpose |
+|--------|---------|
+| `upload_sortit.py` | Bulk-upload image patches to an ImageSet |
+| `delete_duplicate_annotations.py` | Remove duplicate annotations (same user, image, label), keeping the most recent |
+| `qupath_annotations_to_tiles.groovy` | Export image tiles from QuPath for use with SortIT |
+
+---
+
+## Management Commands
+
+| Command | Purpose |
+|---------|---------|
+| `python manage.py export_csv --output out.csv --project <name>` | Export annotations for a project to CSV |
+| `python manage.py createsuperuser` | Create admin user |
+
+CSV output includes the image ID in the first column so it is easy to join across exports.
+
+---
+
 ## Adding Features  
 
 Below are common feature ideas and the files you’ll touch to add them.
@@ -344,7 +376,6 @@ Below are common feature ideas and the files you’ll touch to add them.
 |---------|---------------|--------------------|
 | **Timer for annotation time** | `sortIT/models.py`, `sortIT/views/`, `sortIT/templates/annotate.html`, optional `static/js/annotate_timer.js` | Add a `DurationField` to store time spent. In the view, start a timer when the page loads and capture the elapsed time when the user saves or navigates away. In the template, embed a small JavaScript snippet that reports the elapsed time back to the server. |
 | **Custom user permissions** | `users/models.py`, `project/permissions.py`, `sortIT/views/` | Subclass Django’s `User` model or create a profile. Use Django’s permission system to gate access to certain image sets. |
-| **Bulk upload of image sets** | `sortIT/management/commands/upload_imageset.py`, `sortIT/forms.py` | Write a custom management command to ingest CSV/JSON descriptors. In the form, provide a file input that triggers the command. |
 
 > **Tip**: When changing almost anything in `models.py`, remember to run  
 > ```bash
@@ -358,6 +389,36 @@ python manage.py test
 ```
 
 If you add new features, create a corresponding test.
+
+---
+
+## Production Deployment
+
+The Docker image runs Django + Gunicorn and is suitable for a LAN-hosted research tool out of the box. For internet-facing deployment, you need to bring your own reverse proxy and hardened configuration:
+
+- Put **nginx** or **Caddy** in front for TLS termination and request buffering.
+- Replace **SQLite** with **PostgreSQL** (see `.env.example`) for multi-user concurrency and backups.
+- Set `SECRET_KEY` to a random 50-character string (required — the app refuses to start without it).
+- Set `DEBUG=False` and configure `ALLOWED_HOSTS` to your domain.
+- Enable Django's security settings: `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`.
+- Add a proper **email backend** so password reset works.
+- Set up regular **database backups**.
+
+A typical production compose file would add an nginx service, a PostgreSQL service, and mount the DB volume to a persistent location outside the container. The SortIT image is designed to slot into such a setup — it does not bundle these tools itself.
+
+**Gunicorn args (entrypoint.sh)**
+
+The Docker image uses gunicorn via `entrypoint.sh`:
+
+| Flag | Value | Why |
+|------|-------|-----|
+| `--bind` | `0.0.0.0:8000` | Listen on all interfaces at port 8000 |
+| `--workers` | `1` | SQLite only supports one writer — keep at 1 |
+| `--timeout` | `120` | CSV exports can be slow on large image sets |
+| `--access-logfile` | `-` | Log all requests to stdout (`docker compose logs`) |
+| `--error-logfile` | `-` | Log errors to stdout |
+
+If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 
 ---
 

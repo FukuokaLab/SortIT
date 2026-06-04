@@ -1,10 +1,15 @@
 #!/bin/bash
 set -e
 
-uv run manage.py migrate --noinput
-uv run manage.py collectstatic --noinput --clear
+# Fix permissions on named volumes (bind mounts may fail — that's ok)
+chown -R app:app /app/data 2>/dev/null || true
+chown app:app /app/staticfiles 2>/dev/null || true
+chown app:app /app/media 2>/dev/null || true
 
-exec uv run gunicorn project.wsgi:application \
+gosu app python manage.py migrate --noinput
+gosu app python manage.py collectstatic --noinput --clear
+
+exec gosu app gunicorn project.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers 1 \
     --timeout 120 \
