@@ -40,7 +40,7 @@ class Signup(generic.CreateView):
     form_class = SignupForm
 
     def form_valid(self, form):
-        user = form.save()
+        form.save()
         return redirect("account:signup_done")
 
     def get_context_data(self, **kwargs):

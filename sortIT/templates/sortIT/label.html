@@ -1,16 +1,9 @@
 {% extends 'base.html' %}
 {% block content %}
-    <ul>
-        {% for is in ImageSet.objects.all %}
-            <li>
-                <a href="{% url 'sortIT:label/{{ is.id }}' %}">{{ is.name }}</a>
-            </li>
-        {% endfor %}
-    </ul>
     <div class="row">
         <div>
             <p class="h4">
-                {{ image_set.name }} <!--<small class="text-muted">  {{ image_set.description }}</small>-->
+                {{ imageset.name }}
             </p>
         </div>
         <div class="row my-2">
@@ -29,7 +22,7 @@
     </div>
     <figure class="figure m-3">
         <img src="{% url 'sortIT:show_img' image.id %}"
-             alt="{{ image.image_set }}"
+             alt="{{ imageset.name }} image {{ image.id }}"
              class="img-fluid rounded">
         <figcaption class="figure-caption text-end">{{ image.id }}</figcaption>
     </figure>
@@ -39,6 +32,7 @@
         {% csrf_token %}
         <div class="row y-3">
             <input type="hidden" name="image" value="{{ image.id }}">
+            <input type="hidden" name="imageset" value="{{ imageset.id }}">
         </div>
         <div class="row m-2">
             <div class="col-lg-12 col-md-12">

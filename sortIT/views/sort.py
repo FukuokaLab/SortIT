@@ -49,13 +49,13 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
     unsorted_images = images.exclude(annotations__user=request.user)
     if unsorted_images:
         # number of images to show
-        prefs = UserPreferences.objects.get(user=request.user)
+        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
         n_images = prefs.nimgs
         imsize = prefs.imsize
 
         if request.method == "POST":
-            n_images = int(request.POST["nimgs"])
-            imsize = int(request.POST["imsize"])
+            n_images = int(request.POST.get("nimgs", prefs.nimgs))
+            imsize = int(request.POST.get("imsize", prefs.imsize))
 
             prefs.nimgs = n_images
             prefs.imsize = imsize
@@ -120,11 +120,11 @@ def sort_post(request):
 
         for image_id in displayed_images:
             image = Image.objects.get(id=image_id)
-            Annotation.objects.create(
+            Annotation.objects.get_or_create(
                 image=image,
-                label=None if image_id in selected_images else label,
                 user=request.user,
-                imageset=imageset,
+                label=None if image_id in selected_images else label,
+                defaults={"imageset": imageset},
             )
 
         # Redirect to the next page

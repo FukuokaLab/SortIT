@@ -5,7 +5,7 @@ import zipfile
 
 from django.contrib import admin
 from django.db.models import Count
-from django.http import HttpResponse, HttpResponseBadRequest, StreamingHttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.utils.html import format_html_join
 
 from .models import Annotation, Image, ImageSet, Label, Project
@@ -71,6 +71,7 @@ class LabelAdmin(admin.ModelAdmin):
 class ImageAdmin(admin.ModelAdmin):
     list_display = ["id", "name"]
     list_filter = ["imageset", "imageset__project"]
+    search_fields = ["=id", "name"]
 
 
 @admin.register(ImageSet)
@@ -93,16 +94,13 @@ class ImageSetAdmin(admin.ModelAdmin):
         """
         Export all labeling data for each user by csv
         """
-        if request.method == "POST":
-            current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            imageset = queryset[0]
-            csv_generator = generate_csv_stream(imageset)
-            response = StreamingHttpResponse(csv_generator, content_type="text/csv")
-            response["Content-Disposition"] = (
-                f'attachment; filename="{imageset}_{current_datetime}.csv"'
-            )
-        else:
-            return HttpResponseBadRequest()
+        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        imageset = queryset[0]
+        csv_generator = generate_csv_stream(imageset)
+        response = StreamingHttpResponse(csv_generator, content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{imageset}_{current_datetime}.csv"'
+        )
         return response
 
     export_as_csv.short_description = "Export as CSV"
@@ -110,4 +108,5 @@ class ImageSetAdmin(admin.ModelAdmin):
 
 @admin.register(Annotation)
 class AnnotationAdmin(admin.ModelAdmin):
-    list_display = ["image__id", "label", "user"]
+    list_display = ["image_id", "label", "user"]
+    search_fields = ["=image__id"]

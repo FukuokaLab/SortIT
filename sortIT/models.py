@@ -36,7 +36,7 @@ class ImageSet(models.Model):
 
 class Image(models.Model):
     imageset = models.ManyToManyField(ImageSet, related_name="images")
-    filepath = models.FilePathField(editable=False)
+    filepath = models.CharField(max_length=512, editable=False)
     name = models.CharField(max_length=100)
 
     def __str__(self):
@@ -47,10 +47,23 @@ class Annotation(models.Model):
     image = models.ForeignKey(
         Image, on_delete=models.CASCADE, related_name="annotations"
     )
-    label = models.ForeignKey(Label, on_delete=models.CASCADE, null=True)
+    label = models.ForeignKey(Label, on_delete=models.CASCADE, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     imageset = models.ForeignKey(ImageSet, on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True, editable=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "image", "label"],
+                name="unique_user_image_label",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "image"],
+                condition=models.Q(label__isnull=True),
+                name="unique_user_image_null_label",
+            ),
+        ]
 
 
 class UserPreferences(models.Model):

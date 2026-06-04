@@ -3,25 +3,23 @@ name = "sortit"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-    "django>=5.2.8",
-    "django-admin-thumbnails>=0.2.9",
-    "django-stubs>=5.2.7",
-    "django-widgets-improved>=1.5.0",
-    "matplotlib>=3.10.7",
-    "pillow>=12.0.0",
+  "django>=5.2.8",
+  "django-admin-thumbnails>=0.2.9",
+  "django-stubs>=5.2.7",
+  "django-widgets-improved>=1.5",
+  "gunicorn>=23",
+  "matplotlib>=3.10.9",
+  "pillow>=12",
+  "whitenoise>=6.12.0",
 ]
+
+[tool.djlint]
+indent = 2
+format_js = true
+format_css = true
+line_break_after_multiline_tag = true
+css.indent_size = 2
+js.indent_size = 2
 
 [tool.pyright]
 typeCheckingMode = "basic"
-
-[tool.djlint]
-indent=2
-format_js=true
-format_css=true
-line_break_after_multiline_tag=true
-
-[tool.djlint.js]
-indent_size=2
-
-[tool.djlint.css]
-indent_size=2

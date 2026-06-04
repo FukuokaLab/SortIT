@@ -5,15 +5,16 @@ usage:
 $ python manage.py export_csv --output annotations.csv --project ColonPolyp
 """
 
+import csv
+
+from django.contrib.auth.models import User
 from django.core.management import CommandError
+from django.core.management.base import BaseCommand
+
+from sortIT.models import Annotation, Image, Project
 
 __date__ = "2026-01-21"
 __email__ = " ethan <at> nagasaki-u.ac.jp "
-
-import csv
-from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
-from sortIT.models import Image, Project, Annotation
 
 
 def batched_queryset(qs, batch_size=500):
@@ -69,7 +70,7 @@ class Command(BaseCommand):
 
         with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["filepath"] + [u.username for u in users])
+            writer.writerow(["Image_ID", "filepath"] + [u.username for u in users])
 
             for image_batch in batched_queryset(base_images, batch_size=500):
                 image_ids = [img.id for img in image_batch]
@@ -88,7 +89,7 @@ class Command(BaseCommand):
                 for image in image_batch:
                     row = ann_map.get(image.id, {})
                     writer.writerow(
-                        [image.filepath] + ["|".join(row.get(u.id, [])) for u in users]
+                        [str(image.id), image.filepath] + ["|".join(row.get(u.id, [])) for u in users]
                     )
 
         self.stdout.write(

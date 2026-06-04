@@ -3,19 +3,16 @@ import random
 from io import BytesIO
 from pathlib import Path
 
+import logging
+
 import matplotlib.pyplot as plt
 import PIL.Image
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.http import (
-    FileResponse,
-    HttpResponse,
-    HttpResponseBadRequest,
-)
 from django.shortcuts import redirect, render
-from django.template.response import TemplateResponse
+from django.http import FileResponse, HttpResponse, HttpResponseBadRequest
 
 from sortIT.forms import ImageForm
 from sortIT.models import Image, ImageSet, Project
@@ -25,11 +22,11 @@ from sortIT.models import Image, ImageSet, Project
 def show_image(request, image_id):
     if request.method == "GET":
         image = Image.objects.get(id=image_id)
-        response = FileResponse(open(image.filepath, "rb"))
-    else:
-        response = HttpResponseBadRequest()
+        return FileResponse(open(image.filepath, "rb"))
+    return HttpResponseBadRequest()
 
-    return response
+
+logger = logging.getLogger(__name__)
 
 
 def make_montage(project):
@@ -54,6 +51,7 @@ def make_montage(project):
     plt.close()
 
 
+@login_required
 def show_montage(request, project_id):
     if request.method == "GET":
         try:
@@ -61,7 +59,7 @@ def show_montage(request, project_id):
                 open(f"{settings.MEDIA_ROOT}/montage_{project_id}.jpg", "rb"),
             )
         except FileNotFoundError:
-            print(f"No montage for project {Project.objects.get(id=project_id)}")
+            logger.warning("No montage for project %s", Project.objects.get(id=project_id))
             response = HttpResponse()
     else:
         response = HttpResponseBadRequest()

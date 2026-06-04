@@ -16,9 +16,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
 
-DEBUG = "True"
-SECRET_KEY = "hellofriend!"
-ALLOWED_HOSTS = ["localhost", "df1", "100.123.110.99"]
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+SECRET_KEY = os.getenv("SECRET_KEY", "changeme-in-production")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost").split()
 
 LOGGING = {
     "version": 1,
@@ -68,6 +68,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -99,12 +100,12 @@ WSGI_APPLICATION = "project.wsgi.application"
 # Database
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        "USER": "postgres",
-        "PASSWORD": "pass_for_db",
-        "HOST": "db",
-        "PORT": 5432,
+        "ENGINE": os.getenv("SQL_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.getenv("POSTGRES_DB", BASE_DIR / "data" / "db.sqlite3"),
+        "USER": os.getenv("POSTGRES_USER", ""),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
+        "HOST": os.getenv("SQL_HOST", ""),
+        "PORT": os.getenv("SQL_PORT", ""),
     }
 }
 
@@ -133,16 +134,13 @@ USE_I18N = True
 USE_TZ = False
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = "/static/"
+STATIC_URL = "staticfiles/"
 
-if DEBUG:
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, "assets"),
-        os.path.join(BASE_DIR, "static"),
-    ]
-else:
-    STATIC_ROOT = os.path.join(BASE_DIR, "static")
-
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "assets"),
+    os.path.join(BASE_DIR, "static"),
+]
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

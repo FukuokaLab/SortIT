@@ -61,23 +61,31 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
             .order_by("id")
         )
 
-    header_row = ["Image"] + [user.username for user in users]
+    header_row = ["Image_ID", "Image"] + [user.username for user in users]
     yield sep.join(header_row) + "\n"
 
-    for image in images:
-        anns = Annotation.objects.filter(
-            image=image,
-            user__in=users,
+    # Pre-fetch all annotations for this export in one query
+    anns = (
+        Annotation.objects.filter(
             imageset__project=project,
-        ).select_related("label", "user")
+            user__in=users,
+        )
+        .select_related("label", "user")
+        .order_by("image_id", "user_id")
+    )
 
-        ann_map = {}
-        for ann in anns:
-            ann_map.setdefault(ann.image_id, {}).setdefault(ann.user_id, []).append(
-                ann.label.name if ann.label else ""
-            )
+    ann_map: dict = {}
+    image_names: dict = {}
+    for ann in anns:
+        ann_map.setdefault(ann.image_id, {}).setdefault(ann.user_id, []).append(  # noqa
+            ann.label.name if ann.label else ""
+        )
 
-        row = ann_map.get(image.id, {})
-        row = [image.name] + ["|".join(row.get(u.id, [])) for u in users]
+    for image in images:
+        image_names[image.id] = image.name
+
+    for image_id, image_name in sorted(image_names.items()):
+        row = ann_map.get(image_id, {})
+        row = [str(image_id), image_name] + ["|".join(row.get(u.id, [])) for u in users]
 
         yield sep.join(row) + "\n"

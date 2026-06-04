@@ -1,6 +1,5 @@
 import random
 
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -33,7 +32,7 @@ def label(request, imageset_id):
     # Calculate progress
     total_images = images.count()
     labeled_images = total_images - unlabeled_images.count()
-    progress = round(labeled_images / total_images * 100)
+    progress = round(labeled_images / total_images * 100) if total_images > 0 else 0
 
     # Show labeling form
     context = {
@@ -52,16 +51,19 @@ def label_post(request):
     # Get the image and label selected by the user
     image_id = request.POST.get("image")
     label_id = request.POST.get("label")
-    if image_id and label_id:
-        image = Image.objects.get(id=image_id)
-        label = Label.objects.get(id=label_id)
+    imageset_id = request.POST.get("imageset")
+    if image_id and label_id and imageset_id:
+        image = get_object_or_404(Image, id=image_id)
+        label = get_object_or_404(Label, id=label_id)
+        imageset = get_object_or_404(ImageSet, id=imageset_id)
 
-        # Create an Annotation object
-        annotation = Annotation(image=image, label=label, user=request.user)
-        annotation.save()
+        Annotation.objects.get_or_create(
+            image=image,
+            label=label,
+            user=request.user,
+            defaults={"imageset": imageset},
+        )
 
-        # Redirect to the same ImageSet
-        return redirect("sortIT:labeling", image.imageset.id)
+        return redirect("sortIT:label", imageset_id=imageset.id)
     else:
-        # if the image or label is not specified
         return HttpResponse(b"Please select an image and a label.")
