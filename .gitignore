@@ -19,3 +19,4 @@ logs/*.log
 !**/migrations/__init__.py
 tmp
 /.conductor
+*.csv
