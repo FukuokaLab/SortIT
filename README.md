@@ -27,6 +27,8 @@ SortIT is a web application that allows multiple users to label the same image s
 
 ## Getting Started  
 
+### Local Development
+
 ```bash
 # Clone repo
 git clone https://github.com/FukuokaLab/SortIT.git
@@ -36,8 +38,11 @@ cd SortIT
 uv sync
 source .venv/bin/activate
 
-# Set up app
+# Configure environment
 cp .env.example .env
+# Edit .env and set SECRET_KEY to a random value
+
+# Set up database
 python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
@@ -46,11 +51,26 @@ python manage.py createsuperuser
 python manage.py runserver 0.0.0.0:8000
 ```
 
+### Docker
+
+```bash
+# Clone repo and configure
+cp .env.example .env
+# Edit .env — set SECRET_KEY, DEBUG=False, DJANGO_ALLOWED_HOSTS
+
+# Start the app
+docker compose up -d
+
+# Create a superuser
+docker compose exec web python manage.py createsuperuser
+```
+
 1. **Clone the repository**  
 2. **Install the required packages** ([uv](https://docs.astral.sh/uv/#installation) recommended)
-3. **Apply database migrations**  
-4. **Create a super‑user (for admin access)**  
-5. **Run the app server**
+3. **Configure `.env`** — at minimum set a unique `SECRET_KEY`
+4. **Apply database migrations**  
+5. **Create a super‑user (for admin access)**  
+6. **Run the app server**
 
 Dependencies are listed in the `pyproject.toml` file. Pip can also be used to install these dependencies. 
 
@@ -109,8 +129,7 @@ Example: `192.168.1.5:8000`.
 If you see the login page, the server is running correctly.
 
 > [!NOTE]
-> This setup is not suitable for production deployment over the internet. 
-> We will add documentation regarding deployment with gunicorn and docker.
+> For production deployment, use `docker compose up` (see Docker section above) or set up Gunicorn behind a reverse proxy such as nginx. Set `DEBUG=False` and a strong `SECRET_KEY` in your `.env` file.
 
 ---
 

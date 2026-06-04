@@ -1,0 +1,20 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./media:/app/media
+      - ./logs:/app/logs
+      - sqlite_data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          target: /app
+
+volumes:
+  sqlite_data:

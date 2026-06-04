@@ -5,14 +5,10 @@ build/
 dist/
 wheels/
 *.egg-info
-docker*
 
-# Virtual environments
 .venv
 .envrc
 .python-version
-
-# Resources
 .env
 media/**
 data
@@ -22,3 +18,4 @@ logs/*.log
 **/migrations/*
 !**/migrations/__init__.py
 tmp
+/.conductor
