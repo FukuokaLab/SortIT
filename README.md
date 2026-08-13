@@ -71,14 +71,18 @@ python manage.py runserver 0.0.0.0:8000
 ### Docker
 
 ```bash
-# Clone repo and configure
+# Clone repo
+git clone https://github.com/FukuokaLab/SortIT.git
+cd SortIT
+
+# Configure environment
 cp .env.example .env
-# Edit .env — set SECRET_KEY, DEBUG=False, DJANGO_ALLOWED_HOSTS
+# Edit .env and set SECRET_KEY to a random value
 
 # Start the app
 docker compose up --build -d
 
-# Create a superuser
+# Setup
 docker compose exec web python manage.py createsuperuser
 ```
 
@@ -94,7 +98,7 @@ docker compose down
 
 When using docker, all commands must be run inside the container. For all python commands described below, prefix the command with `docker compose exec web`
 
-You may have to prefix all docker commands with `sudo`
+You may have to prefix all docker commands with `sudo` depending on your system setup. Please refer to [Docker documentation](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user) for details.
 
 ### Docker image from ghcr
 
@@ -191,30 +195,9 @@ Either at the project level, or for individual image sets, you can click "Export
 
 ---
 
-## Data Model
-
-| Model | Relationships |
-|-------|--------------|
-| **Project** | has many ImageSets, has many Labels, assigned to many Users |
-| **ImageSet** | belongs to one Project, has many Labels, contains many Images |
-| **Image** | belongs to many ImageSets |
-| **Label** | belongs to one Project |
-| **Annotation** | one Image + one User + one Label (nullable) + one ImageSet |
-| **User** | belongs to many Projects (Django's built-in User model) |
-
-```
-Project ──1:N── ImageSet ──N:M── Image
-Project ──1:N── Label
-Project ──N:M── User
-Annotation ──1:1── Image, User, ImageSet
-Annotation ──1:1── Label (nullable)
-```
-
----
-
 ## Tiling WSI with QuPath
 
-Here is a code snippet which should be able to export patches from QuPath
+Here is a code snippet which should be able to export patches from QuPath (tested on QuPath v0.5)
 
 ```groovy
 // Author: Tom Bisson
@@ -270,6 +253,27 @@ Typical things you might edit:
 
 ---
 
+## Data Model
+
+| Model | Relationships |
+|-------|--------------|
+| **Project** | has many ImageSets, has many Labels, assigned to many Users |
+| **ImageSet** | belongs to one Project, has many Labels, contains many Images |
+| **Image** | belongs to many ImageSets |
+| **Label** | belongs to one Project |
+| **Annotation** | one Image + one User + one Label (nullable) + one ImageSet |
+| **User** | belongs to many Projects (Django's built-in User model) |
+
+```
+Project ──1:N── ImageSet ──N:M── Image
+Project ──1:N── Label
+Project ──N:M── User
+Annotation ──1:1── Image, User, ImageSet
+Annotation ──1:1── Label (nullable)
+```
+
+---
+
 ## File Structure & Key Files  
 
 **Top‑level files**
@@ -305,8 +309,7 @@ Typical things you might edit:
 | **`tests.py`** | Basic unit tests that exercise the app’s logic. |
 | **`migrations/`** | Auto‑generated scripts that build/alter the database schema. |
 | **`templates/sortIT/`** | HTML templates that are rendered to users. |
-| **`views/`** | Separate Python modules that contain view functions for each page: |
-| | `project_list.py`, `imageset_list.py`, `images.py`, `label.py`, `sort.py`, `finish.py`. |
+| **`views.py`** | All view functions: sorting, labeling, upload, CSV download, montage. |
 | **`static/`** | Static assets (CSS, JS, images) that the templates load. |
 
 ---
@@ -374,8 +377,8 @@ Below are common feature ideas and the files you’ll touch to add them.
 
 | Feature | Files to Edit | What to do (brief) |
 |---------|---------------|--------------------|
-| **Timer for annotation time** | `sortIT/models.py`, `sortIT/views/`, `sortIT/templates/annotate.html`, optional `static/js/annotate_timer.js` | Add a `DurationField` to store time spent. In the view, start a timer when the page loads and capture the elapsed time when the user saves or navigates away. In the template, embed a small JavaScript snippet that reports the elapsed time back to the server. |
-| **Custom user permissions** | `users/models.py`, `project/permissions.py`, `sortIT/views/` | Subclass Django’s `User` model or create a profile. Use Django’s permission system to gate access to certain image sets. |
+| **Timer for annotation time** | `sortIT/models.py`, `sortIT/views.py`, `sortIT/templates/annotate.html`, optional `static/js/annotate_timer.js` | Add a `DurationField` to store time spent. In the view, start a timer when the page loads and capture the elapsed time when the user saves or navigates away. In the template, embed a small JavaScript snippet that reports the elapsed time back to the server. |
+| **Custom user permissions** | `users/models.py`, `project/permissions.py`, `sortIT/views.py` | Subclass Django’s `User` model or create a profile. Use Django’s permission system to gate access to certain image sets. |
 
 > **Tip**: When changing almost anything in `models.py`, remember to run  
 > ```bash
