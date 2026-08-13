@@ -17,7 +17,7 @@ import django
 django.setup()
 
 from sortIT.models import Image, ImageSet, Project
-from sortIT.views.images import make_montage
+from sortIT.views import make_montage
 
 for FOLDER in Path("/home/aliya/projects/colonpolyp/data/patches").iterdir():
     label = FOLDER.name
