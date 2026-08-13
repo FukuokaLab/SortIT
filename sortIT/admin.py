@@ -1,4 +1,3 @@
-import csv
 import datetime
 import io
 import zipfile
@@ -44,12 +43,8 @@ class ProjectAdmin(admin.ModelAdmin):
             with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
                 for project in queryset:
                     csv_io = io.StringIO()
-                    writer = csv.writer(csv_io, delimiter=",")
-                    # write header
-                    header_row = ["Image"] + [u.username for u in project.users.all()]
-                    writer.writerow(header_row)
-                    for row in generate_csv_stream(project):
-                        writer.writerow(row.split(","))
+                    for line in generate_csv_stream(project):
+                        csv_io.write(line)
                     # add to zip
                     zf.writestr(f"{project}_{current_datetime}.csv", csv_io.getvalue())
             zip_io.seek(0)
