@@ -276,8 +276,8 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
     label = labels.first()
 
     # Choose un-sorted images
-    unsorted_images = images.exclude(annotations__user=request.user)
-    if unsorted_images:
+    unsorted_count = images.exclude(annotations__user=request.user).count()
+    if unsorted_count:
         # number of images to show
         prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
         n_images = prefs.nimgs
@@ -291,17 +291,17 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
             prefs.imsize = imsize
             prefs.save()
 
-        # Randomly select n_images
-        images = random.sample(
-            list(unsorted_images),
-            min(n_images, unsorted_images.count()),
+        # Randomly select n_images at the DB level
+        n_to_show = min(n_images, unsorted_count)
+        images = list(
+            images.exclude(annotations__user=request.user).order_by("?")[:n_to_show]
         )
     else:
         # If all images are sorted, redirect to finish
         return redirect("sortIT:finish")
 
     # Calculate progress
-    n_labeled = total_images - unsorted_images.count()
+    n_labeled = total_images - unsorted_count
     progress = round(n_labeled / total_images * 100)
 
     # Show sorting form
