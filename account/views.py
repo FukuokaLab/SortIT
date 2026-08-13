@@ -80,4 +80,3 @@ class PasswordChange(PasswordChangeView):
 
 class PasswordChangeDone(PasswordChangeDoneView):
     template_name = "account/password_change_done.html"
-

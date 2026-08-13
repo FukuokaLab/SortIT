@@ -2,8 +2,8 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import (
     AuthenticationForm,
-    UserCreationForm,
     PasswordChangeForm,
+    UserCreationForm,
 )
 
 # Get the User model
@@ -36,7 +36,7 @@ class SignupForm(UserCreationForm):
             field.widget.attrs["required"] = ""
 
             if field.label == "Last Name":
-                field.widget.attrs["autofocus"] = ""  #
+                field.widget.attrs["autofocus"] = ""
                 field.widget.attrs["placeholder"] = "Tanaka"
             elif field.label == "First Name":
                 field.widget.attrs["placeholder"] = "Ichiro"
@@ -67,4 +67,3 @@ class MyPasswordChangeForm(PasswordChangeForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "form-control"
-
