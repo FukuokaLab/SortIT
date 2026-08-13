@@ -5,7 +5,6 @@ from io import BytesIO
 from pathlib import Path
 
 import PIL.Image
-import matplotlib.pyplot as plt
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
@@ -34,18 +33,25 @@ def make_montage(project):
     k = min(len(images), 20)
     images = random.sample(images, k=k)
     images = [PIL.Image.open(image.filepath) for image in images]
-    _, axs = plt.subplots(nrows=4, ncols=5, sharex=True, sharey=True, figsize=(2, 1.6))
-    for i, ax in enumerate(axs.flat):
-        ax.axis("off")
-        if i < k:
-            ax.imshow(images[i])
 
-    plt.savefig(
+    thumb_size = (128, 128)
+    cols = 5
+    rows = (len(images) + cols - 1) // cols
+    canvas_w = cols * thumb_size[0]
+    canvas_h = rows * thumb_size[1]
+    canvas = PIL.Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
+
+    for i, img in enumerate(images):
+        img.thumbnail(thumb_size)
+        x = (i % cols) * thumb_size[0] + (thumb_size[0] - img.width) // 2
+        y = (i // cols) * thumb_size[1] + (thumb_size[1] - img.height) // 2
+        canvas.paste(img, (x, y))
+
+    canvas.save(
         f"{settings.MEDIA_ROOT}/montage_{project.id}.jpg",
-        bbox_inches="tight",
-        dpi=100,
+        "JPEG",
+        quality=85,
     )
-    plt.close()
 
 
 @login_required
