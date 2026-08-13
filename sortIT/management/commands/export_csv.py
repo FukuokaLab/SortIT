@@ -11,7 +11,8 @@ from django.contrib.auth.models import User
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
-from sortIT.models import Annotation, Image, Project
+from sortIT.models import Image, Project
+from sortIT.utils import annotation_map
 
 __date__ = "2026-01-21"
 __email__ = " ethan <at> nagasaki-u.ac.jp "
@@ -75,21 +76,13 @@ class Command(BaseCommand):
             for image_batch in batched_queryset(base_images, batch_size=500):
                 image_ids = [img.id for img in image_batch]
 
-                annotations = Annotation.objects.filter(
-                    image_id__in=image_ids,
-                    imageset__project=project,
-                ).select_related("user", "label")
-
-                ann_map = {}
-                for ann in annotations:
-                    ann_map.setdefault(ann.image_id, {}).setdefault(
-                        ann.user_id, []
-                    ).append(ann.label.name if ann.label else "")
+                ann_map = annotation_map(project, users, image_ids)
 
                 for image in image_batch:
                     row = ann_map.get(image.id, {})
                     writer.writerow(
-                        [str(image.id), image.filepath] + ["|".join(row.get(u.id, [])) for u in users]
+                        [str(image.id), image.filepath]
+                        + ["|".join(row.get(u.id, [])) for u in users]
                     )
 
         self.stdout.write(

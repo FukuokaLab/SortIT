@@ -3,6 +3,29 @@ from collections.abc import Generator
 from .models import Annotation, Image, ImageSet, Project
 
 
+def annotation_map(
+    project: Project, users: list, image_ids: list | None = None
+) -> dict:
+    """Map image_id -> user_id -> list of label names for a project's annotations.
+
+    Labels are stored as their name, or empty string when the annotation has
+    no label (user discarded the image).
+    """
+    qs = Annotation.objects.filter(
+        imageset__project=project,
+        user__in=users,
+    ).select_related("label", "user")
+    if image_ids is not None:
+        qs = qs.filter(image_id__in=image_ids)
+
+    ann_map: dict = {}
+    for ann in qs:
+        ann_map.setdefault(ann.image_id, {}).setdefault(ann.user_id, []).append(
+            ann.label.name if ann.label else ""
+        )
+    return ann_map
+
+
 def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[str]:
     """Generate a CSV formatted stream of image annotations.
 
@@ -65,21 +88,8 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
     yield sep.join(header_row) + "\n"
 
     # Pre-fetch all annotations for this export in one query
-    anns = (
-        Annotation.objects.filter(
-            imageset__project=project,
-            user__in=users,
-        )
-        .select_related("label", "user")
-        .order_by("image_id", "user_id")
-    )
-
-    ann_map: dict = {}
+    ann_map = annotation_map(project, users)
     image_names: dict = {}
-    for ann in anns:
-        ann_map.setdefault(ann.image_id, {}).setdefault(ann.user_id, []).append(  # noqa
-            ann.label.name if ann.label else ""
-        )
 
     for image in images:
         image_names[image.id] = image.name
