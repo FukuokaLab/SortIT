@@ -3,9 +3,7 @@
   {% load static %}
   <div class="row">
     <div class="m-2">
-      <p class="h4">
-        {{ imageset.name }}
-      </p>
+      <p class="h4">{{ imageset.name }}</p>
     </div>
     <div class="row m-2">
       <div class="col">
@@ -18,9 +16,7 @@
                 aria-valuemax="100"></span>
         </span>
       </div>
-      <div class="col">
-        {{ n_labeled }}/{{ n_total }}
-      </div>
+      <div class="col">{{ n_labeled }}/{{ n_total }}</div>
     </div>
     <div class="row m-2">
       <div class="col">
@@ -50,21 +46,16 @@
          id="sortsettings"
          aria-labelledby="sortsettings">
       <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="sortsettings">
-          Sort Settings
-        </h5>
+        <h5 class="offcanvas-title" id="sortsettings">Sort Settings</h5>
         <button type="button"
                 class="btn-close"
                 data-bs-dismiss="offcanvas"
-                aria-label="Close">
-        </button>
+                aria-label="Close"></button>
       </div>
       <div class="offcanvas-body">
         <div class="card">
           <div class="card-body">
-            <label for="nimgs_range" class="h5">
-              Number of images
-            </label>
+            <label for="nimgs_range" class="h5">Number of images</label>
             <input type="range"
                    name="nimgs"
                    class="form-range"
@@ -78,9 +69,7 @@
         </div>
         <div class="card my-2">
           <div class="card-body">
-            <label for="imsize_range" class="h5">
-              Image size
-            </label>
+            <label for="imsize_range" class="h5">Image size</label>
             <input type="range"
                    name="imsize"
                    class="form-range"
@@ -93,9 +82,7 @@
           </div>
         </div>
         <div>
-          <button type="submit" class="btn btn-primary">
-            Update
-          </button>
+          <button type="submit" class="btn btn-primary">Update</button>
         </div>
       </div>
     </div>
@@ -132,9 +119,7 @@
           submit.
         </em>
       </p>
-      <p>
-        {{ imageset.desc }}
-      </p>
+      <p>{{ imageset.desc }}</p>
     </div>
     <div class="row m-2">
       <div class="col">

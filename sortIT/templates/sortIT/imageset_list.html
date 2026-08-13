@@ -55,18 +55,17 @@
       {% endfor %}
     </div>
   </div>
-</div>
-<script>
-  function filterCards() {
-    let input = document.getElementById("search-input").value.toLowerCase();
-    let cards = document.getElementsByClassName("card-box");
+  <script>
+    function filterCards() {
+      let input = document.getElementById("search-input").value.toLowerCase();
+      let cards = document.getElementsByClassName("card-box");
 
-    for (let i = 0; i < cards.length; i++) {
-      const cardText = cards[i].innerText.toLowerCase();
-      cards[i].style.display = cardText.includes(input) ? "" : "none";
+      for (let i = 0; i < cards.length; i++) {
+        const cardText = cards[i].innerText.toLowerCase();
+        cards[i].style.display = cardText.includes(input) ? "" : "none";
+      }
     }
-  }
 
-  document.getElementById("search-input").addEventListener("input", filterCards);
-</script>
+    document.getElementById("search-input").addEventListener("input", filterCards);
+  </script>
 {% endblock %}
