@@ -78,6 +78,7 @@ cd SortIT
 # Configure environment
 cp .env.example .env
 # Edit .env and set SECRET_KEY to a random value
+# Optionally set APP_PORT to change the port the app is served on (default 8000)
 
 # Start the app
 docker compose up --build -d
