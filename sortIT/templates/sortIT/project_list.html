@@ -8,22 +8,28 @@
            class="form-control"
            autofocus>
   </div>
-  <div class="row mx-1 my-2">
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 px-2">
     {% for project in object_list %}
-      <div class="card mx-auto" style="width: 18rem;">
-        <img src="{% url 'sortIT:show_montage' project.id %}"
-             class="card-img-top"
-             alt="{{ project.name }}">
-        <div class="card-body">
-          <h5 class="card-title">{{ project.name }}</h5>
-          <p class="card-text text-muted">{{ project.desc }}</p>
-          <div class="text-align">
-            <a href="{% url 'sortIT:choose_img_set' project.id %}"
-               class="btn btn-primary btn-large">Select</a>
-            <a href="{% url 'sortIT:down_proj_csv' project.id %}"
-               class="btn btn-outline-secondary btn-large mx-auto">
-              <img src="{% static 'download.svg' %}" alt="download">
-            Export CSV </a>
+      <div class="col card-box">
+        <div class="card h-100">
+          {% if project.has_images %}
+            <img src="{% url 'sortIT:show_montage' project.id %}"
+                 class="card-img-top"
+                 style="height: 160px;
+                        object-fit: cover"
+                 alt="{{ project.name }}">
+          {% endif %}
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ project.name }}</h5>
+            <p class="card-text text-muted">{{ project.desc }}</p>
+            <div class="mt-auto d-flex gap-2">
+              <a href="{% url 'sortIT:choose_img_set' project.id %}"
+                 class="btn btn-primary flex-grow-1">Select</a>
+              <a href="{% url 'sortIT:down_proj_csv' project.id %}"
+                 class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center gap-1">
+                <img src="{% static 'download.svg' %}" alt="download">
+              Export CSV </a>
+            </div>
           </div>
         </div>
       </div>
