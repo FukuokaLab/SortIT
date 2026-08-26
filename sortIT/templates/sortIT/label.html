@@ -72,7 +72,8 @@
     <img src="{% url "sortIT:show_img" image.id %}"
          alt="{{ imageset.name }} image {{ image.id }}"
          class="img-fluid rounded"
-         style="width: {{ imsize }}px; height: auto">
+         style="width: {{ imsize }}px;
+                height: auto">
     <figcaption class="figure-caption text-end">{{ image.id }}</figcaption>
   </figure>
   <form action="{% url "sortIT:label_post" %}"
@@ -168,22 +169,25 @@
     }
 
     var flashTimer;
+    var submitting = false;
     document.addEventListener("keydown", function(event) {
-      if (event.altKey) {
-        var num = parseInt(event.key, 10);
-        if (num >= 1 && num <= buttons.length) {
-          event.preventDefault(); // suppress native accesskey handling (avoids double-fire)
-          clearTimeout(flashTimer);
-          var btn = buttons[num - 1];
-          for (var i = 0; i < buttons.length; i++) {
-            buttons[i].classList.remove('active');
-          }
-          btn.classList.add('active'); // highlight before moving on
-          flashTimer = setTimeout(function() {
-            input.value = btn.dataset.label;
-            form.submit();
-          }, 150);
+      if (submitting || !event.altKey) return;
+      var num = parseInt(event.key, 10);
+      if (num >= 1 && num <= buttons.length) {
+        event.preventDefault(); // suppress native accesskey handling (avoids double-fire)
+        clearTimeout(flashTimer);
+        for (var i = 0; i < buttons.length; i++) {
+          buttons[i].classList.remove('active');
         }
+        var btn = buttons[num - 1];
+        btn.classList.add('active'); // only the selected label lights up
+        // 400ms debounce: any key within the window re-aims instead of committing,
+        // so a rolling succession always submits the FINAL key pressed.
+        flashTimer = setTimeout(function() {
+          submitting = true; // input locked once a submit is decided
+          input.value = btn.dataset.label;
+          form.submit();
+        }, 400);
       }
     });
   </script>
