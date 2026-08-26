@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import logging
+import math
 import random
 from io import BytesIO
 from pathlib import Path
@@ -36,7 +37,7 @@ def make_montage(project):
     images = [PIL.Image.open(image.filepath) for image in images]
 
     thumb_size = (128, 128)
-    cols = 5
+    cols = math.ceil(math.sqrt(len(images)))
     rows = (len(images) + cols - 1) // cols
     canvas_w = cols * thumb_size[0]
     canvas_h = rows * thumb_size[1]
