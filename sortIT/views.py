@@ -417,10 +417,16 @@ def download_imageset_csv(request, imageset_id):
         current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         imageset = ImageSet.objects.get(id=imageset_id)
         csv_generator = generate_csv_stream(imageset)
-        response = StreamingHttpResponse(csv_generator, content_type="text/csv")
-        response["Content-Disposition"] = (
-            f'attachment; filename="{imageset.name}_{imageset.project.name}_{current_datetime}.csv"'
-        )
     else:
         response = HttpResponseBadRequest()
     return response
+
+
+@login_required
+def toggle_darkmode(request):
+    """Flip the user's dark mode preference (POST only)."""
+    if request.method == "POST":
+        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+        prefs.dark_mode = not prefs.dark_mode
+        prefs.save()
+    return redirect(request.POST.get("next") or "sortIT:choose_proj")

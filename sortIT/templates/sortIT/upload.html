@@ -40,12 +40,12 @@
       <div class="m-2" id="dropzone-div">
         <div class="dropzone"
              id="dropzone"
-             style="border: 2px dashed #000000;
+             style="border: 2px dashed var(--bs-border-color);
                     padding: 70px;
                     margin: 15px;
                     font-size: 22px;
-                    color: #000000;
-                    background-color: #ffffff;
+                    color: var(--bs-body-color);
+                    background-color: var(--bs-body-bg);
                     text-align: center">
           Drop files or folder here
         </div>
@@ -84,7 +84,7 @@
 
     dropzone.ondragover = function(e) {
       e.preventDefault();
-      this.style.backgroundColor = "#b3e6ff";
+      this.style.backgroundColor = "var(--bs-tertiary-bg)";
       this.className = "dropzone dragover";
       return false;
     };

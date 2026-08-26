@@ -13,6 +13,7 @@ from sortIT.views import (
     show_montage,
     sort,
     sort_post,
+    toggle_darkmode,
 )
 
 app_name = "sortIT"
@@ -40,5 +41,6 @@ urlpatterns = [
     path("label_post", label_post, name="label_post"),
     path("sort/<int:imageset_id>", sort, name="sort"),
     path("sort_post", sort_post, name="sort_post"),
+    path("toggle_darkmode", toggle_darkmode, name="toggle_darkmode"),
     path("finish", finish, name="finish"),
 ]

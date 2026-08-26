@@ -76,6 +76,7 @@ class UserPreferences(models.Model):
     sort_nimgs = models.PositiveIntegerField(default=16)
     sort_imsize = models.PositiveIntegerField(default=200)
     label_imsize = models.PositiveIntegerField(default=200)
+    dark_mode = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username}"

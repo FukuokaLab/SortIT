@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 {% load static %}
-<html lang='en'>
+<html lang='en'
+      data-bs-theme="{% if dark_mode %}dark{% else %}light{% endif %}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,11 +12,16 @@
           rel="stylesheet"
           integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
           crossorigin="anonymous">
+    <style>
+      [data-bs-theme="dark"] img[src$=".svg"] {
+        filter: invert(1) brightness(2);
+      }
+    </style>
   </head>
   <body>
     <div class="container-fluid">
       <header>
-        <nav class="navbar navbar-expand-sm navbar-light bg-light">
+        <nav class="navbar navbar-expand-sm bg-body-tertiary">
           <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'sortIT:choose_proj' %}">SortIT</a>
             {% if user.is_authenticated %}
@@ -30,6 +36,17 @@
                   {% endif %}
                   <li class="nav-item">
                     <a class="nav-link" href="{% url 'account:my_page' user.pk %}">Account</a>
+                  </li>
+                  <li class="nav-item">
+                    <form method="post" action="{% url 'sortIT:toggle_darkmode' %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="{{ request.path }}">
+                      <button class="btn btn-sm mt-3 mt-sm-1" type="submit">
+                        <img src="{% static 'dark-theme.svg' %}"
+                             alt="theme"
+                             style="max-height:20px">
+                      </button>
+                    </form>
                   </li>
                 </ul>
                 <span class="mx-3 nav-item">Signed in as {{ user.username }}</span>
