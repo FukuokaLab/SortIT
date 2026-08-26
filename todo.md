@@ -47,7 +47,7 @@ docker compose ps          # expect Status: healthy
 
 ### Feature checks
 
-- [ ] Local
+- [x] Local
   - [x] `http://localhost:8000/account/login/` loads with styling (no broken static files) @done(20260814 14:31)
   - [x] Visiting `/sortIT/` while logged out redirects to the login page @done(20260814 14:31)
   - [x] Sign up a new user → lands on the sign-up done page @done(20260814 14:31)
@@ -73,8 +73,9 @@ docker compose ps          # expect Status: healthy
   - [x] Admin: select 2+ projects → action "Export as CSV" → ZIP; each inner CSV has exactly ONE header row @done(20260814 22:45) 
   - [x] CLI export: `python manage.py export_csv --project <name>` (docker: `docker compose exec web python ...`) → `Image_ID,filepath,<user...>` @done(20260814 22:45) 
   - [x] A label containing a comma survives CSV export un-corrupted (e.g. name a label `a, b`) @done(20260820 10:23) 
-  - [ ] Annotations from two users on the same image both appear as separate columns 
+  - [x] Annotations from two users on the same image both appear as separate columns @done(20260826 20:45) 
   - [x] `show_img` serves the actual image file @done(20260814 22:48) 
+  - [ ] confirm separate annotations per imageset
 
 
 - [ ] Docker

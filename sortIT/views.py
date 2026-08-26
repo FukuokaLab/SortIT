@@ -208,14 +208,18 @@ def label(request, imageset_id):
         if back_image_id:
             image = get_object_or_404(Image, id=back_image_id, imageset=imageset)
         else:
-            unlabeled_images = images.exclude(annotations__user=request.user)
+            unlabeled_images = images.exclude(
+                annotations__user=request.user, annotations__imageset=imageset
+            )
             if unlabeled_images:
                 image = random.choice(unlabeled_images)
             else:
                 return redirect("sortIT:finish")
 
     # Calculate progress
-    unlabeled_count = images.exclude(annotations__user=request.user).count()
+    unlabeled_count = images.exclude(
+        annotations__user=request.user, annotations__imageset=imageset
+    ).count()
     total_images = images.count()
     labeled_images = total_images - unlabeled_count
     progress = round(labeled_images / total_images * 100) if total_images > 0 else 0
@@ -248,7 +252,7 @@ def label_post(request):
             image=image,
             label=label,
             user=request.user,
-            defaults={"imageset": imageset},
+            imageset=imageset,
         )
 
         return redirect("sortIT:label", imageset_id=imageset.id)
@@ -294,7 +298,9 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
     label = labels.first()
 
     # Choose un-sorted images
-    unsorted_count = images.exclude(annotations__user=request.user).count()
+    unsorted_count = images.exclude(
+        annotations__user=request.user, annotations__imageset=imageset
+    ).count()
     if unsorted_count:
         # number of images to show
         prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
@@ -318,7 +324,9 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
             # Randomly select n_images at the DB level
             n_to_show = min(n_images, unsorted_count)
             images = list(
-                images.exclude(annotations__user=request.user).order_by("?")[:n_to_show]
+                images.exclude(
+                    annotations__user=request.user, annotations__imageset=imageset
+                ).order_by("?")[:n_to_show]
             )
     else:
         # If all images are sorted, redirect to finish
@@ -380,8 +388,9 @@ def sort_post(request):
             Annotation.objects.get_or_create(
                 image=image,
                 user=request.user,
+                imageset=imageset,
                 label=None if image_id in selected_images else label,
-                defaults={"imageset": imageset, "timestamp": batch_ts},
+                defaults={"timestamp": batch_ts},
             )
 
         # Redirect to the next page

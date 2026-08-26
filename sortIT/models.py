@@ -60,14 +60,16 @@ class Annotation(models.Model):
 
     class Meta:
         constraints = [
+            # Per-(image, imageset) decisions: the same image can carry a
+            # different verdict in each image set it belongs to.
             models.UniqueConstraint(
-                fields=["user", "image", "label"],
-                name="unique_user_image_label",
+                fields=["user", "image", "imageset", "label"],
+                name="unique_user_image_imageset_label",
             ),
             models.UniqueConstraint(
-                fields=["user", "image"],
+                fields=["user", "image", "imageset"],
                 condition=models.Q(label__isnull=True),
-                name="unique_user_image_null_label",
+                name="unique_user_image_imageset_null_label",
             ),
         ]
 

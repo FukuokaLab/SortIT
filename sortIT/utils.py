@@ -4,17 +4,23 @@ from .models import Annotation, Image, ImageSet, Project
 
 
 def annotation_map(
-    project: Project, users: list, image_ids: list | None = None
+    project: Project,
+    users: list,
+    image_ids: list | None = None,
+    imageset: ImageSet | None = None,
 ) -> dict:
-    """Map image_id -> user_id -> list of label names for a project's annotations.
+    """Map image_id -> user_id -> list of label names for annotations.
 
     Labels are stored as their name, or empty string when the annotation has
-    no label (user discarded the image).
+    no label (user discarded the image). When `imageset` is given, only that
+    image set's annotations are included; otherwise all annotations of the
+    project are included.
     """
-    qs = Annotation.objects.filter(
-        imageset__project=project,
-        user__in=users,
-    ).select_related("label", "user")
+    qs = Annotation.objects.filter(user__in=users).select_related("label", "user")
+    if imageset is not None:
+        qs = qs.filter(imageset=imageset)
+    else:
+        qs = qs.filter(imageset__project=project)
     if image_ids is not None:
         qs = qs.filter(image_id__in=image_ids)
 
@@ -89,7 +95,7 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
         images = (
             Image.objects.filter(
                 imageset=imageset,
-                annotations__isnull=False,
+                annotations__imageset=imageset,
             )
             .distinct()
             .order_by("id")
@@ -99,7 +105,11 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
     yield sep.join(_csv_field(f, sep) for f in header_row) + "\n"
 
     # Pre-fetch all annotations for this export in one query
-    ann_map = annotation_map(project, users)
+    ann_map = annotation_map(
+        project,
+        users,
+        imageset=obj if isinstance(obj, ImageSet) else None,
+    )
     image_names: dict = {}
 
     for image in images:
