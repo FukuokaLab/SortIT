@@ -23,8 +23,8 @@ class SignupForm(UserCreationForm):
     class Meta:
         model = User
         fields = (
-            "last_name",
             "first_name",
+            "last_name",
             "email",
             "username",
         )
@@ -36,9 +36,9 @@ class SignupForm(UserCreationForm):
             field.widget.attrs["required"] = ""
 
             if field.label == "Last Name":
-                field.widget.attrs["autofocus"] = ""
                 field.widget.attrs["placeholder"] = "Tanaka"
             elif field.label == "First Name":
+                field.widget.attrs["autofocus"] = ""
                 field.widget.attrs["placeholder"] = "Ichiro"
             elif field.label == "E mail":
                 field.widget.attrs["placeholder"] = "***@gmail.com"
@@ -48,8 +48,8 @@ class UserUpdateForm(forms.ModelForm):
     class Meta:
         model = User
         fields = (
-            "last_name",
             "first_name",
+            "last_name",
             "email",
             "username",
         )
