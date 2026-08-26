@@ -42,6 +42,35 @@ SortIT is a web application that allows multiple users to label the same image s
 
 ### Local Development
 
+1. Using [uv](https://docs.astral.sh/uv/)
+
+```bash
+# Clone repo
+git clone https://github.com/FukuokaLab/SortIT.git
+cd SortIT
+
+# Install dependencies
+uv sync
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Configure environment
+cp .env.example .env
+# Edit .env and set SECRET_KEY to a random value
+
+# Set up database
+python manage.py makemigrations
+python manage.py migrate
+python manage.py collectstatic
+python manage.py createsuperuser
+
+# Run app
+python manage.py runserver 0.0.0.0:8000
+```
+
+
+2. Using stock python - python/pip/python3-venv must be installed on your system.  
+Local dev setup was tested locally python 3.14.7
+
 ```bash
 # Clone repo
 git clone https://github.com/FukuokaLab/SortIT.git
@@ -59,14 +88,13 @@ cp .env.example .env
 # Set up database
 python manage.py makemigrations
 python manage.py migrate
+python manage.py collectstatic
 python manage.py createsuperuser
 
 # Run app
 python manage.py runserver 0.0.0.0:8000
 ```
 
-> [!NOTE]
-> This project is also compatible with [uv](https://docs.astral.sh/uv/) — replace the install step above with `uv sync` and replace `python` with `uv run`.
 
 ### Docker
 

@@ -3,11 +3,17 @@ name = "sortit"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-  "django>=5.2.8",
-  "django-stubs>=5.2.7",
-  "gunicorn>=23",
-  "pillow>=12",
+  "django>=6.0.6",
+  "gunicorn>=26.0.0",
+  "pillow>=12.2.0",
+  "python-dotenv>=1.2.2",
   "whitenoise>=6.12.0",
+]
+
+[dependency-groups]
+dev = [
+  "django-stubs>=6.1.0",
+  "ipython>=9.16.1",
 ]
 
 [tool.djlint]
@@ -18,5 +24,11 @@ line_break_after_multiline_tag = true
 css.indent_size = 2
 js.indent_size = 2
 
-[tool.pyright]
-typeCheckingMode = "basic"
+[tool.pyrefly]
+project-includes = [
+  "**/*.py*",
+  "**/*.ipynb",
+]
+
+[tool.ruff]
+lint.ignore = ["RUF012"]
