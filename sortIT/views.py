@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import logging
 import random
 from io import BytesIO
@@ -84,7 +85,7 @@ def write_file(img_dst, jpeg_img):
         dst.writelines(jpeg_img.chunks())
 
 
-def process_image(img, imageset_id):
+def process_image(img, imageset_id, digest):
     with BytesIO() as img_io:
         img_io.write(img.read())
         img_io.seek(0)
@@ -130,7 +131,7 @@ def process_image(img, imageset_id):
                     output_io.close()
 
     # Synchronize database operations
-    image = Image.objects.create(filepath=img_dst, name=imgname)
+    image = Image.objects.create(filepath=img_dst, name=imgname, sha256=digest)
     image.imageset.set([imageset_id])
     image.save()
 
@@ -148,17 +149,18 @@ def image_upload(request, imageset_id):
             images.extend(request.FILES.getlist("image-dir"))
 
             for img in images:
-                original_name = Path(img._get_name())
+                digest = hashlib.sha256(img.read()).hexdigest()
+                img.seek(0)
                 existing = Image.objects.filter(
                     imageset__project=project,
-                    name=original_name,
+                    sha256=digest,
                 ).first()
                 if existing:
-                    # Duplicate: just associate the new imageset with this image
+                    # Duplicate content: just associate the new imageset with this image
                     existing.imageset.add(imageset)
                 else:
                     # New image: process and store it
-                    process_image(img, imageset_id)
+                    process_image(img, imageset_id, digest)
 
             make_montage(project)
             return redirect("sortIT:choose_img_set", project_id=project.id)

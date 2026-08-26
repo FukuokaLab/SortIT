@@ -64,7 +64,7 @@ class LabelAdmin(admin.ModelAdmin):
 
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
-    list_display = ["id", "name"]
+    list_display = ["id", "name", "sha256"]
     list_filter = ["imageset", "imageset__project"]
     search_fields = ["=id", "name"]
 

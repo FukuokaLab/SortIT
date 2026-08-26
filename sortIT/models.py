@@ -10,6 +10,10 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def has_images(self):
+        return Image.objects.filter(imageset__project=self).exists()
+
 
 class Label(models.Model):
     name = models.CharField(max_length=100)
@@ -38,9 +42,10 @@ class Image(models.Model):
     imageset = models.ManyToManyField(ImageSet, related_name="images")
     filepath = models.CharField(max_length=512, editable=False)
     name = models.CharField(max_length=100)
+    sha256 = models.CharField(max_length=64, editable=False, blank=True, default="")
 
     def __str__(self):
-        return str(self.filepath)
+        return self.filepath
 
 
 class Annotation(models.Model):
