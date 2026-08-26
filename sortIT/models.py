@@ -73,8 +73,9 @@ class Annotation(models.Model):
 
 class UserPreferences(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="prefs")
-    nimgs = models.PositiveIntegerField(default=16)
-    imsize = models.PositiveIntegerField(default=200)
+    sort_nimgs = models.PositiveIntegerField(default=16)
+    sort_imsize = models.PositiveIntegerField(default=200)
+    label_imsize = models.PositiveIntegerField(default=200)
 
     def __str__(self):
         return f"{self.user.username}"

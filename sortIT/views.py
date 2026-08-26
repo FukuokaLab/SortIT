@@ -185,23 +185,32 @@ def label(request, imageset_id):
     images = imageset.images.all()
     labels = imageset.labels.all()
 
-    # Check the number of labels linked to the ImageSet
-    if labels.count() == 1 or (
-        labels.count() == 2 and labels.filter(name="other").exists()
-    ):
-        # And Redirect to sortOne View if there is ONLY ONE label other than "other" label
+    # Redirect to sortOne mode if there is exactly one non-"other" label
+    if labels.exclude(name="other").count() == 1:
         return redirect("sortIT:sort", imageset_id=imageset_id)
 
-    # Choose un-labeled images randomly
-    unlabeled_images = images.exclude(annotations__user=request.user)
-    if unlabeled_images:
-        image = random.choice(unlabeled_images)
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+    imsize = prefs.label_imsize
+
+    # Settings POST: update prefs and keep showing the current image
+    if request.method == "POST":
+        imsize = int(request.POST.get("imsize", prefs.label_imsize))
+        prefs.label_imsize = imsize
+        prefs.save()
+        image = get_object_or_404(Image, id=request.POST.get("image"))
     else:
-        return redirect("sortIT:finish")
+        # Choose un-labeled images randomly
+        image = None
+        unlabeled_images = images.exclude(annotations__user=request.user)
+        if unlabeled_images:
+            image = random.choice(unlabeled_images)
+        else:
+            return redirect("sortIT:finish")
 
     # Calculate progress
+    unlabeled_count = images.exclude(annotations__user=request.user).count()
     total_images = images.count()
-    labeled_images = total_images - unlabeled_images.count()
+    labeled_images = total_images - unlabeled_count
     progress = round(labeled_images / total_images * 100) if total_images > 0 else 0
 
     # Show labeling form
@@ -212,6 +221,7 @@ def label(request, imageset_id):
         "progress": progress,
         "n_total": total_images,
         "n_labeled": labeled_images,
+        "imsize": imsize,
     }
     return render(request, "sortIT/label.html", context)
 
@@ -266,9 +276,8 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
     images = imageset.images.all()
     labels = imageset.labels.all()
 
-    # Check the number of labels linked to the ImageSet
-    if labels.count() != 1:
-        # And Redirect to usual labeling mode View if there are > 1 labels
+    # Redirect to labeling mode unless there is exactly one non-"other" label
+    if labels.exclude(name="other").count() != 1:
         return redirect("sortIT:label", imageset_id=imageset_id)
 
     # count total number of images
@@ -282,15 +291,15 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
     if unsorted_count:
         # number of images to show
         prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
-        n_images = prefs.nimgs
-        imsize = prefs.imsize
+        n_images = prefs.sort_nimgs
+        imsize = prefs.sort_imsize
 
         if request.method == "POST":
-            n_images = int(request.POST.get("nimgs", prefs.nimgs))
-            imsize = int(request.POST.get("imsize", prefs.imsize))
+            n_images = int(request.POST.get("nimgs", prefs.sort_nimgs))
+            imsize = int(request.POST.get("imsize", prefs.sort_imsize))
 
-            prefs.nimgs = n_images
-            prefs.imsize = imsize
+            prefs.sort_nimgs = n_images
+            prefs.sort_imsize = imsize
             prefs.save()
 
         # Randomly select n_images at the DB level
