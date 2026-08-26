@@ -19,6 +19,8 @@ from django.http import (
     StreamingHttpResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
 
 from sortIT.forms import ImageForm
 from sortIT.models import Annotation, Image, ImageSet, Label, Project, UserPreferences
@@ -200,13 +202,17 @@ def label(request, imageset_id):
         prefs.save()
         image = get_object_or_404(Image, id=request.POST.get("image"))
     else:
-        # Choose un-labeled images randomly
+        # Choose un-labeled images randomly, unless returning via the Back button
         image = None
-        unlabeled_images = images.exclude(annotations__user=request.user)
-        if unlabeled_images:
-            image = random.choice(unlabeled_images)
+        back_image_id = request.GET.get("image")
+        if back_image_id:
+            image = get_object_or_404(Image, id=back_image_id, imageset=imageset)
         else:
-            return redirect("sortIT:finish")
+            unlabeled_images = images.exclude(annotations__user=request.user)
+            if unlabeled_images:
+                image = random.choice(unlabeled_images)
+            else:
+                return redirect("sortIT:finish")
 
     # Calculate progress
     unlabeled_count = images.exclude(annotations__user=request.user).count()
@@ -303,11 +309,17 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
             prefs.sort_imsize = imsize
             prefs.save()
 
-        # Randomly select n_images at the DB level
-        n_to_show = min(n_images, unsorted_count)
-        images = list(
-            images.exclude(annotations__user=request.user).order_by("?")[:n_to_show]
-        )
+        # Pick the exact set when returning via the Back button
+        back_ids = request.GET.get("images")
+        if back_ids:
+            id_list = [int(i) for i in back_ids.split(",") if i.isdigit()]
+            images = list(images.filter(id__in=id_list))
+        else:
+            # Randomly select n_images at the DB level
+            n_to_show = min(n_images, unsorted_count)
+            images = list(
+                images.exclude(annotations__user=request.user).order_by("?")[:n_to_show]
+            )
     else:
         # If all images are sorted, redirect to finish
         return redirect("sortIT:finish")
@@ -360,18 +372,52 @@ def sort_post(request):
         # Get all image id displayed
         displayed_images = request.POST["displayed_images"].split(",")
 
+        # One shared timestamp marks this whole batch as a single undo unit
+        batch_ts = timezone.now()
+
         for image_id in displayed_images:
             image = Image.objects.get(id=image_id)
             Annotation.objects.get_or_create(
                 image=image,
                 user=request.user,
                 label=None if image_id in selected_images else label,
-                defaults={"imageset": imageset},
+                defaults={"imageset": imageset, "timestamp": batch_ts},
             )
 
         # Redirect to the next page
         return redirect("sortIT:sort", imageset_id=imageset_id)
     return HttpResponseBadRequest()
+
+
+@login_required
+def undo(request, imageset_id):
+    """Delete the user's most recent annotation batch for this imageset and
+    return to it so they can redo the labeling.
+
+    A batch is the set of annotations sharing the most recent timestamp
+    (a sort page creates one timestamp per entire page, a label page one
+    per image), so Back chains back through the whole session.
+    """
+    mode = request.POST.get("mode", "label")
+    newest = (
+        Annotation.objects.filter(user=request.user, imageset_id=imageset_id)
+        .order_by("-timestamp")
+        .first()
+    )
+    if newest:
+        batch = Annotation.objects.filter(
+            user=request.user, imageset_id=imageset_id, timestamp=newest.timestamp
+        )
+        ids = [str(i) for i in batch.values_list("image_id", flat=True)]
+        batch.delete()
+        if mode == "sort":
+            return redirect(
+                f"{reverse('sortIT:sort', args=[imageset_id])}?images={','.join(ids)}"
+            )
+        return redirect(
+            f"{reverse('sortIT:label', args=[imageset_id])}?image={ids[0]}"
+        )
+    return redirect("sortIT:label", imageset_id=imageset_id)
 
 
 @login_required
@@ -417,6 +463,10 @@ def download_imageset_csv(request, imageset_id):
         current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         imageset = ImageSet.objects.get(id=imageset_id)
         csv_generator = generate_csv_stream(imageset)
+        response = StreamingHttpResponse(csv_generator, content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{imageset.name}_{imageset.project.name}_{current_datetime}.csv"'
+        )
     else:
         response = HttpResponseBadRequest()
     return response

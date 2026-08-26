@@ -32,6 +32,13 @@
                 class="btn btn-outline-secondary">
           Select All
         </button>
+        <form action="{% url 'sortIT:undo' imageset.id %}"
+              method="post"
+              class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="mode" value="sort">
+          <button type="submit" class="btn btn-outline-secondary">← Back</button>
+        </form>
       </div>
     </div>
   </div>

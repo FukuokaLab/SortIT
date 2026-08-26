@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 
 
 class Project(models.Model):
@@ -55,7 +56,7 @@ class Annotation(models.Model):
     label = models.ForeignKey(Label, on_delete=models.CASCADE, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     imageset = models.ForeignKey(ImageSet, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True, editable=False)
+    timestamp = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
         constraints = [

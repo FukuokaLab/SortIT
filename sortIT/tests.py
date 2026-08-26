@@ -770,3 +770,115 @@ class UploadDedupTestCase(TestCase):
         self.assertEqual(r1.status_code, 302)
         self.assertEqual(r2.status_code, 302)
         self.assertEqual(Image.objects.count(), 2)
+
+
+
+class BackButtonTestCase(TestCase):
+    """Back button: undo the last label/sort batch and return to it."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
+        self.project = Project.objects.create(name="Test Project", desc="Test Desc")
+        self.project.users.add(self.user)
+        self.label = Label.objects.create(
+            name="Test Label", desc="Test Desc", project=self.project
+        )
+        self.label2 = Label.objects.create(
+            name="Test Label 2", desc="Test Desc 2", project=self.project
+        )
+        # Two labels so the label page renders instead of redirecting to sort
+        self.imageset = ImageSet.objects.create(
+            name="Test ImageSet", desc="Test Desc", project=self.project
+        )
+        self.imageset.labels.add(self.label, self.label2)
+        self.client.login(username="testuser", password="testpass123")
+
+    def test_label_undo_returns_to_same_image(self):
+        image = Image.objects.create(filepath="/tmp/undo1.png", name="undo1.png")
+        self.imageset.images.add(image)
+
+        self.client.post(
+            reverse("sortIT:label_post"),
+            {"image": image.id, "label": self.label.id, "imageset": self.imageset.id},
+        )
+        self.assertTrue(Annotation.objects.filter(image=image, user=self.user).exists())
+
+        resp = self.client.post(reverse("sortIT:undo", args=[self.imageset.id]))
+        self.assertFalse(Annotation.objects.filter(image=image, user=self.user).exists())
+        self.assertEqual(
+            resp["Location"],
+            f"{reverse('sortIT:label', args=[self.imageset.id])}?image={image.id}",
+        )
+
+    def test_sort_undo_returns_to_same_set(self):
+        imgs = [
+            Image.objects.create(filepath=f"/tmp/undo{i}.png", name=f"undo{i}.png")
+            for i in range(3)
+        ]
+        self.imageset.images.add(*imgs)
+        ids = [str(i.id) for i in imgs]
+
+        self.client.post(
+            reverse("sortIT:sort_post"),
+            {
+                "imageset": self.imageset.id,
+                "selected_images": ids[0],
+                "displayed_images": ",".join(ids),
+            },
+        )
+        self.assertEqual(
+            Annotation.objects.filter(user=self.user, imageset=self.imageset).count(),
+            3,
+        )
+
+        resp = self.client.post(
+            reverse("sortIT:undo", args=[self.imageset.id]), {"mode": "sort"}
+        )
+        self.assertEqual(
+            Annotation.objects.filter(user=self.user, imageset=self.imageset).count(),
+            0,
+        )
+        self.assertEqual(
+            resp["Location"],
+            f"{reverse('sortIT:sort', args=[self.imageset.id])}?images={','.join(ids)}",
+        )
+
+    def test_undo_without_history_lands_in_flow(self):
+        resp = self.client.post(reverse("sortIT:undo", args=[self.imageset.id]))
+        self.assertTrue(resp.status_code, 302)
+        self.assertEqual(resp["Location"], reverse("sortIT:label", args=[self.imageset.id]))
+
+    def test_undo_chains_through_session(self):
+        img1 = Image.objects.create(filepath="/tmp/chain1.png", name="chain1.png")
+        img2 = Image.objects.create(filepath="/tmp/chain2.png", name="chain2.png")
+        self.imageset.images.add(img1, img2)
+
+        for img in (img1, img2):
+            self.client.post(
+                reverse("sortIT:label_post"),
+                {"image": img.id, "label": self.label.id, "imageset": self.imageset.id},
+            )
+
+        # First back returns to the second-labeled image
+        resp = self.client.post(
+            reverse("sortIT:undo", args=[self.imageset.id]), {"mode": "label"}
+        )
+        self.assertEqual(
+            resp["Location"],
+            f"{reverse('sortIT:label', args=[self.imageset.id])}?image={img2.id}",
+        )
+        self.assertFalse(Annotation.objects.filter(image=img2, user=self.user).exists())
+        self.assertTrue(Annotation.objects.filter(image=img1, user=self.user).exists())
+
+        # Second back returns to the first-labeled image
+        resp = self.client.post(
+            reverse("sortIT:undo", args=[self.imageset.id]), {"mode": "label"}
+        )
+        self.assertEqual(
+            resp["Location"],
+            f"{reverse('sortIT:label', args=[self.imageset.id])}?image={img1.id}",
+        )
+        self.assertFalse(Annotation.objects.filter(user=self.user).exists())
