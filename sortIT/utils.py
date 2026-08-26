@@ -26,6 +26,17 @@ def annotation_map(
     return ann_map
 
 
+def _csv_field(value: str, sep: str) -> str:
+    """Strip a CSV field; quote it if it contains the separator, whitespace,
+    or a quote character (internal quotes are doubled)."""
+    value = value.strip()
+    if not value:
+        return ""
+    if sep in value or any(c.isspace() for c in value) or '"' in value:
+        return '"' + value.replace('"', '""') + '"'
+    return value
+
+
 def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[str]:
     """Generate a CSV formatted stream of image annotations.
 
@@ -85,7 +96,7 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
         )
 
     header_row = ["Image_ID", "Image"] + [user.username for user in users]
-    yield sep.join(header_row) + "\n"
+    yield sep.join(_csv_field(f, sep) for f in header_row) + "\n"
 
     # Pre-fetch all annotations for this export in one query
     ann_map = annotation_map(project, users)
@@ -98,4 +109,4 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
         row = ann_map.get(image_id, {})
         row = [str(image_id), image_name] + ["|".join(row.get(u.id, [])) for u in users]
 
-        yield sep.join(row) + "\n"
+        yield sep.join(_csv_field(f, sep) for f in row) + "\n"
