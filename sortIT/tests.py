@@ -163,8 +163,8 @@ class ModelTestCase(TestCase):
 
     def test_user_preferences_defaults(self):
         prefs = UserPreferences.objects.get(user=self.user)
-        self.assertEqual(prefs.nimgs, 16)
-        self.assertEqual(prefs.imsize, 200)
+        self.assertEqual(prefs.sort_nimgs, 16)
+        self.assertEqual(prefs.sort_imsize, 200)
 
     def test_user_preferences_str(self):
         prefs = UserPreferences.objects.get(user=self.user)
@@ -245,6 +245,30 @@ class ViewTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_csv_export_quotes_commas_whitespace_and_strips(self):
+        comma_label = Label.objects.create(name="cat, dog", project=self.project)
+        padded_label = Label.objects.create(name="  padded  ", project=self.project)
+        self.imageset.labels.add(comma_label, padded_label)
+        image1 = Image.objects.create(filepath="/tmp/a.png", name="a.png")
+        image1.imageset.add(self.imageset)
+        image2 = Image.objects.create(filepath="/tmp/b.png", name="b.png")
+        image2.imageset.add(self.imageset)
+        Annotation.objects.create(
+            image=image1, label=comma_label, user=self.user, imageset=self.imageset
+        )
+        Annotation.objects.create(
+            image=image2, label=padded_label, user=self.user, imageset=self.imageset
+        )
+
+        response = self.client.get(
+            reverse("sortIT:down_imset_csv", kwargs={"imageset_id": self.imageset.pk})
+        )
+        content = b"".join(response.streaming_content).decode()
+        self.assertIn('"cat, dog"', content)  # comma/space -> quoted
+        self.assertIn("padded", content)  # whitespace stripped
+        self.assertNotIn("  padded", content)
+        self.assertNotIn('"a.png"', content)  # plain fields stay unquoted
+
     def test_sort_view_redirects_to_label_multi_labels(self):
         label2 = Label.objects.create(name="Label 2", project=self.project)
         self.imageset.labels.add(label2)
@@ -318,6 +342,26 @@ class ViewTestCase(TestCase):
             response,
             reverse("sortIT:sort", kwargs={"imageset_id": self.imageset.pk}),
         )
+
+    def test_label_other_plus_one_label_no_redirect_loop(self):
+        """One real label + "other" -> sort mode; no label<->sort loop."""
+        other = Label.objects.create(name="other", project=self.project)
+        self.imageset.labels.add(other)
+        image = Image.objects.create(filepath="/tmp/test.png", name="test.png")
+        image.imageset.add(self.imageset)
+
+        response = self.client.get(
+            reverse("sortIT:label", kwargs={"imageset_id": self.imageset.pk})
+        )
+        self.assertRedirects(
+            response,
+            reverse("sortIT:sort", kwargs={"imageset_id": self.imageset.pk}),
+        )
+        # sort must render (not bounce back to label)
+        response = self.client.get(
+            reverse("sortIT:sort", kwargs={"imageset_id": self.imageset.pk})
+        )
+        self.assertEqual(response.status_code, 200)
 
     def test_label_view_redirects_to_finish_when_done(self):
         label2 = Label.objects.create(name="Label 2", project=self.project)
@@ -499,8 +543,8 @@ class SignalTestCase(TestCase):
         )
         self.assertTrue(UserPreferences.objects.filter(user=user).exists())
         prefs = UserPreferences.objects.get(user=user)
-        self.assertEqual(prefs.nimgs, 16)
-        self.assertEqual(prefs.imsize, 200)
+        self.assertEqual(prefs.sort_nimgs, 16)
+        self.assertEqual(prefs.sort_imsize, 200)
 
 
 class AdminTestCase(TestCase):
@@ -660,3 +704,69 @@ class MontageTestCase(TestCase):
             shutil.copy(src, dst)
             self.assertTrue(dst.exists(), f"Montage not found at {dst}")
             print(f"\nMontage written to {dst}")
+
+
+class UploadDedupTestCase(TestCase):
+    """Upload dedup keys on content hash, not filename."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="staffuser",
+            email="staff@example.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        self.project = Project.objects.create(name="Dedup Project")
+        self.set_a = ImageSet.objects.create(name="Set A", project=self.project)
+        self.set_b = ImageSet.objects.create(name="Set B", project=self.project)
+
+    def _img_bytes(self, color):
+        import io
+
+        import PIL.Image
+
+        buf = io.BytesIO()
+        PIL.Image.new("RGB", (32, 32), color).save(buf, "PNG")
+        return buf.getvalue()
+
+    def _upload(self, imageset, files):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test.utils import override_settings
+
+        uploads = [
+            SimpleUploadedFile(name, data, content_type="image/png")
+            for name, data in files
+        ]
+        with override_settings(MEDIA_ROOT=self.media_tmp):
+            return self.client.post(
+                reverse("sortIT:upload", args=[imageset.id]),
+                {"image": uploads},
+            )
+
+    def test_same_content_different_name_is_deduped(self):
+        import tempfile
+
+        self.media_tmp = tempfile.mkdtemp()
+        self.client.force_login(self.user)
+
+        bytes_a = self._img_bytes((255, 0, 0))
+        r1 = self._upload(self.set_a, [("photo.jpg", bytes_a)])
+        r2 = self._upload(self.set_b, [("renamed.png", bytes_a)])
+
+        self.assertEqual(r1.status_code, 302)
+        self.assertEqual(r2.status_code, 302)
+        self.assertEqual(Image.objects.count(), 1)
+        self.assertIn(self.set_b, Image.objects.first().imageset.all())
+
+    def test_same_name_different_content_is_not_deduped(self):
+        import tempfile
+
+        self.media_tmp = tempfile.mkdtemp()
+        self.client.force_login(self.user)
+
+        r1 = self._upload(self.set_a, [("photo.jpg", self._img_bytes((255, 0, 0)))])
+        r2 = self._upload(self.set_b, [("photo.jpg", self._img_bytes((0, 0, 255)))])
+
+        self.assertEqual(r1.status_code, 302)
+        self.assertEqual(r2.status_code, 302)
+        self.assertEqual(Image.objects.count(), 2)
