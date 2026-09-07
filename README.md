@@ -57,8 +57,8 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 cp .env.example .env
 # Edit .env and set SECRET_KEY to a random value
 
-# Set up database
-python manage.py makemigrations
+# Set up database (migrations are included in the repo, so no
+# makemigrations needed unless you changed the models yourself)
 python manage.py migrate
 python manage.py collectstatic
 python manage.py createsuperuser
@@ -85,8 +85,8 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and set SECRET_KEY to a random value
 
-# Set up database
-python manage.py makemigrations
+# Set up database (migrations are included in the repo, so no
+# makemigrations needed unless you changed the models yourself)
 python manage.py migrate
 python manage.py collectstatic
 python manage.py createsuperuser
@@ -464,7 +464,7 @@ If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 | `ModuleNotFoundError: No module named 'django'` | Python path not set or virtual environment not activated | Run `source .venv/bin/activate` and re‑install dependencies with `uv sync` |
 | Port 8000 already in use | Another process is listening | Choose another port, e.g. `python manage.py runserver 0.0.0.0:8001` |
 | Browser shows “Could not connect” | Server not running or firewall blocking | Confirm `runserver` output, check network connectivity, ensure firewall allows the port |
-| Database errors on first run | Migrations missing | `python manage.py makemigrations` and `python manage.py migrate` |
+| Database errors on first run | Migrations missing | `python manage.py migrate` |
 | Static files not loading | `STATIC_URL` misconfigured | Check `STATIC_URL` in settings |
 
 
