@@ -476,7 +476,7 @@ If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 
 ### Assumptions
 
-- It is assumed that each uploaded tile has a unique filename. Problems could arise if two files share the same filename.
+- Uploaded files are renamed automatically (`<name>___<imageset_id>___<timestamp>.jpg`) and identical content is stored only once (deduped by SHA-256), so filenames do not need to be unique.
 
 ---
 

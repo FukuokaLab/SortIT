@@ -752,6 +752,25 @@ class MontageTestCase(TestCase):
         with PIL.Image.open(out_path) as canvas:
             self.assertEqual(canvas.size, expected_size)
 
+    def test_make_montage_empty_project_does_not_crash(self):
+        # regression: an upload POST with no parseable file (or any other call
+        # with zero images) used to crash make_montage with ZeroDivisionError
+        project = Project.objects.create(name="Empty Montage")
+        imageset = ImageSet.objects.create(name="Empty Set", project=project)
+        imageset.labels.add(Label.objects.create(name="lbl", project=project))
+
+        from sortIT.views import make_montage
+
+        make_montage(project)  # must not raise
+
+        staff = User.objects.create_user(
+            username="emptystaff", password="pw", is_staff=True
+        )
+        client = Client()
+        client.force_login(staff)
+        resp = client.post(reverse("sortIT:upload", args=[imageset.pk]), {})
+        self.assertEqual(resp.status_code, 302)  # clean redirect, no 500
+
 
 class UploadDedupTestCase(TestCase):
     """Upload dedup keys on content hash, not filename."""

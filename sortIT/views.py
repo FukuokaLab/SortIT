@@ -34,6 +34,8 @@ def make_montage(project):
     images = []
     for i_s in imagesets:
         images.extend(list(i_s.images.all()))
+    if not images:
+        return  # nothing to plot — don't crash on an empty project
     k = min(len(images), 20)
     images = random.sample(images, k=k)
     images = [PIL.Image.open(image.filepath) for image in images]
