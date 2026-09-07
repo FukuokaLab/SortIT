@@ -19,6 +19,9 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ensure writable runtime dirs exist (fresh clones have none; LOGGING writes to data/)
+(BASE_DIR / "data").mkdir(exist_ok=True)
+
 # Quick-start development settings - unsuitable for production
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -164,4 +167,6 @@ DATA_UPLOAD_MAX_NUMBER_FILES = 50000
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 50000
 
 host_name = os.getenv("SERVER_NAME")
-CSRF_TRUSTED_ORIGINS = [f"https://{host_name}", f"http://{host_name}"]
+CSRF_TRUSTED_ORIGINS = []
+if host_name:
+    CSRF_TRUSTED_ORIGINS = [f"https://{host_name}", f"http://{host_name}"]

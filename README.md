@@ -131,11 +131,13 @@ You may have to prefix all docker commands with `sudo` depending on your system 
 
 ### Docker image from ghcr
 
-This project has been made available online.
+A prebuilt image is published to GitHub Container Registry automatically on every push to `main` (see `.github/workflows/docker-publish.yml`):
 
 ```bash
 docker pull ghcr.io/fukuokalab/sortit:latest
 ```
+
+Run it the same way as a locally built image — copy `.env.example` to `.env` and use `docker compose up -d` (the compose file builds from source, which is equivalent).
 
 ---
 
@@ -458,6 +460,7 @@ If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 
 | Symptom | Possible Cause | Quick Fix |
 |---------|----------------|-----------|
+| `ModuleNotFoundError: No module named 'dotenv'` | `requirements.txt` predates the `python-dotenv` dependency | Re-run `pip install -r requirements.txt` (or `uv sync`) — newer copies of `requirements.txt` include it |
 | `ModuleNotFoundError: No module named 'django'` | Python path not set or virtual environment not activated | Run `source .venv/bin/activate` and re‑install dependencies with `uv sync` |
 | Port 8000 already in use | Another process is listening | Choose another port, e.g. `python manage.py runserver 0.0.0.0:8001` |
 | Browser shows “Could not connect” | Server not running or firewall blocking | Confirm `runserver` output, check network connectivity, ensure firewall allows the port |

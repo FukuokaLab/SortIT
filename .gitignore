@@ -15,8 +15,6 @@ data
 logs/*.log
 *.sqlite3
 *.sqlite3.bak
-**/migrations/*
-!**/migrations/__init__.py
 tmp
 /.conductor
 *.csv
