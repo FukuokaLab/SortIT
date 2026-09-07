@@ -46,14 +46,14 @@ def _csv_field(value: str, sep: str) -> str:
 def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[str]:
     """Generate a CSV formatted stream of image annotations.
 
-    This generator yields lines of a CSV file that contains each image name
-    followed by the annotation labels for every user that has access to the
-    project (or image set). The first yielded line is the header row
-    containing the column names.
+    This generator yields lines of a CSV file that contains each image's
+    id and filepath followed by the annotation labels for every user that
+    has access to the project (or image set). The first yielded line is the
+    header row containing the column names.
 
     The CSV format is:
 
-        Image,<user1>,<user2>,<user3>...
+        Image_ID,filepath,<user1>,<user2>,<user3>...
 
     For each image the annotations are collected from the
     `Annotation` model. If a user has an annotation with a label (i.e. not `None`)
@@ -101,7 +101,7 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
             .order_by("id")
         )
 
-    header_row = ["Image_ID", "Image"] + [user.username for user in users]
+    header_row = ["Image_ID", "filepath"] + [user.username for user in users]
     yield sep.join(_csv_field(f, sep) for f in header_row) + "\n"
 
     # Pre-fetch all annotations for this export in one query
@@ -110,13 +110,13 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
         users,
         imageset=obj if isinstance(obj, ImageSet) else None,
     )
-    image_names: dict = {}
+    image_paths: dict = {}
 
     for image in images:
-        image_names[image.id] = image.name
+        image_paths[image.id] = image.filepath
 
-    for image_id, image_name in sorted(image_names.items()):
+    for image_id, image_path in sorted(image_paths.items()):
         row = ann_map.get(image_id, {})
-        row = [str(image_id), image_name] + ["|".join(row.get(u.id, [])) for u in users]
+        row = [str(image_id), image_path] + ["|".join(row.get(u.id, [])) for u in users]
 
         yield sep.join(_csv_field(f, sep) for f in row) + "\n"
