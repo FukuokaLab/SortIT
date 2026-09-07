@@ -57,8 +57,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 cp .env.example .env
 # Edit .env and set SECRET_KEY to a random value
 
-# Set up database (migrations are included in the repo, so no
-# makemigrations needed unless you changed the models yourself)
+# Set up database
 python manage.py migrate
 python manage.py collectstatic
 python manage.py createsuperuser
@@ -85,8 +84,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and set SECRET_KEY to a random value
 
-# Set up database (migrations are included in the repo, so no
-# makemigrations needed unless you changed the models yourself)
+# Set up database
 python manage.py migrate
 python manage.py collectstatic
 python manage.py createsuperuser
@@ -411,11 +409,19 @@ Below are common feature ideas and the files you’ll touch to add them.
 | **Timer for annotation time** | `sortIT/models.py`, `sortIT/views.py`, `sortIT/templates/annotate.html`, optional `static/js/annotate_timer.js` | Add a `DurationField` to store time spent. In the view, start a timer when the page loads and capture the elapsed time when the user saves or navigates away. In the template, embed a small JavaScript snippet that reports the elapsed time back to the server. |
 | **Custom user permissions** | `users/models.py`, `project/permissions.py`, `sortIT/views.py` | Subclass Django’s `User` model or create a profile. Use Django’s permission system to gate access to certain image sets. |
 
-> **Tip**: When changing almost anything in `models.py`, remember to run  
-> ```bash
-> python manage.py makemigrations
-> python manage.py migrate
-> ```  
+**A note on "migrations" (for non-Django users)**
+
+SortIT stores its data in a database, and the structure of that database (the "schema") is managed by Django files called *migrations* — small scripts that describe changes to the database over time. The repo already ships every migration it needs, which is why the setup steps above only run `migrate`: that command applies them to an empty database automatically. **As a normal user you never need to run `makemigrations`.**
+
+You only encounter migrations if you are *changing the code*. When you edit `sortIT/models.py` (or `account/models.py`) to add a new field, Django does not know about it until you generate and apply a migration:
+
+```bash
+python manage.py makemigrations   # generates a new migration file describing your model change
+python manage.py migrate          # applies it to the database
+```
+
+If you contribute the change back to the project, commit the generated file in `sortIT/migrations/` together with your model change — otherwise other people's databases never learn about the new field.
+
 The repository ships with basic tests in `sortIT/tests.py`.
 
 ```bash
