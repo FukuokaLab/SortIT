@@ -7,25 +7,14 @@ $ python manage.py export_csv --output annotations.csv --project ColonPolyp
 
 import csv
 
-from django.contrib.auth.models import User
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
 from sortIT.models import Image, Project
-from sortIT.utils import annotation_map
+from sortIT.utils import annotation_map, _memberships
 
 __date__ = "2026-01-21"
 __email__ = " ethan <at> nagasaki-u.ac.jp "
-
-
-def batched_queryset(qs, batch_size=500):
-    start = 0
-    while True:
-        batch = list(qs[start : start + batch_size])
-        if not batch:
-            break
-        yield batch
-        start += batch_size
 
 
 class Command(BaseCommand):
@@ -58,36 +47,37 @@ class Command(BaseCommand):
         except Project.DoesNotExist:
             raise CommandError(f"Project not found: {project_arg}")
 
-        users = list(User.objects.order_by("id"))
+        users = list(project.users.all())
 
-        base_images = (
+        images = (
             Image.objects.filter(
                 imageset__project=project,
                 annotations__isnull=False,
             )
             .distinct()
             .order_by("id")
+            .prefetch_related("imageset")
         )
 
         with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["Image_ID", "filename"] + [u.username for u in users])
+            writer.writerow(
+                ["Image_ID", "imageset", "filename"]
+                + [u.username for u in users]
+            )
 
-            for image_batch in batched_queryset(base_images, batch_size=500):
-                image_ids = [img.id for img in image_batch]
+            ann_map = annotation_map(project, users)
 
-                ann_map = annotation_map(project, users, image_ids)
-
-                for image in image_batch:
-                    row = ann_map.get(image.id, {})
-                    writer.writerow(
-                        [str(image.id), image.name]
-                        + ["|".join(row.get(u.id, [])) for u in users]
-                    )
+            for image, imageset in _memberships(images):
+                cells = ann_map.get((image.id, imageset.id), {})
+                writer.writerow(
+                    [str(image.id), imageset.name, image.name]
+                    + [cells.get(u.id, "") for u in users]
+                )
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Exported {base_images.count()} images from project '{project.name}' "
+                f"Exported annotations from project '{project.name}' "
                 f"to {output_path}"
             )
         )

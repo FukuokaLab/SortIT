@@ -650,8 +650,8 @@ class AnnotationMapTestCase(TestCase):
         )
 
         ann_map = annotation_map(self.project, [self.user])
-        self.assertEqual(ann_map[img1.id][self.user.id], ["Tumor"])
-        self.assertEqual(ann_map[img2.id][self.user.id], [""])
+        self.assertEqual(ann_map[(img1.id, self.imageset.id)][self.user.id], "Tumor")
+        self.assertEqual(ann_map[(img2.id, self.imageset.id)][self.user.id], "")
 
     def test_annotation_map_respects_image_ids(self):
         img = Image.objects.create(filepath="/tmp/1.jpg", name="1.jpg")
@@ -661,7 +661,7 @@ class AnnotationMapTestCase(TestCase):
         )
 
         ann_map = annotation_map(self.project, [self.user], image_ids=[img.id])
-        self.assertIn(img.id, ann_map)
+        self.assertIn((img.id, self.imageset.id), ann_map)
         # Unknown image id -> no annotations returned
         ann_map_empty = annotation_map(self.project, [self.user], image_ids=[99999])
         self.assertEqual(ann_map_empty, {})

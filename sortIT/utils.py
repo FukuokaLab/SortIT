@@ -1,5 +1,4 @@
 from collections.abc import Generator
-from pathlib import Path
 
 from .models import Annotation, Image, ImageSet, Project
 
@@ -8,26 +7,21 @@ def annotation_map(
     project: Project,
     users: list,
     image_ids: list | None = None,
-    imageset: ImageSet | None = None,
 ) -> dict:
-    """Map image_id -> user_id -> list of label names for annotations.
+    """Map (image_id, imageset_id) -> user_id -> label name.
 
-    Labels are stored as their name, or empty string when the annotation has
-    no label (user discarded the image). When `imageset` is given, only that
-    image set's annotations are included; otherwise all annotations of the
-    project are included.
+    Annotations are unique per (user, image, image set), so each user has at
+    most one value per pair (an empty string when the annotation has no label,
+    i.e. the user discarded the image).
     """
-    qs = Annotation.objects.filter(user__in=users).select_related("label", "user")
-    if imageset is not None:
-        qs = qs.filter(imageset=imageset)
-    else:
-        qs = qs.filter(imageset__project=project)
+    qs = Annotation.objects.filter(user__in=users).select_related("label")
+    qs = qs.filter(imageset__project=project)
     if image_ids is not None:
         qs = qs.filter(image_id__in=image_ids)
 
     ann_map: dict = {}
     for ann in qs:
-        ann_map.setdefault(ann.image_id, {}).setdefault(ann.user_id, []).append(
+        ann_map.setdefault((ann.image_id, ann.imageset_id), {})[ann.user_id] = (
             ann.label.name if ann.label else ""
         )
     return ann_map
@@ -44,38 +38,34 @@ def _csv_field(value: str, sep: str) -> str:
     return value
 
 
-def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[str]:
-    """Generate a CSV formatted stream of image annotations.
+def _memberships(images) -> list[tuple[Image, ImageSet]]:
+    """All (image, image set) memberships of the given images, sorted."""
+    return sorted(
+        ((image, imageset) for image in images for imageset in image.imageset.all()),
+        key=lambda m: (m[0].id, m[1].id),
+    )
 
-    This generator yields lines of a CSV file that contains each image's
-    id and original filename followed by the annotation labels for every
-    user that has access to the project (or image set). The first yielded
-    line is the header row containing the column names.
+
+def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[str]:
+    """Generate a CSV stream of image annotations.
+
+    One row per image (per image set for a project export: an image that
+    belongs to two image sets appears once per set, with the set named in
+    the ``imageset`` column). Each cell holds that user's single label for
+    the row's image set.
 
     The CSV format is:
 
-        Image_ID,filepath,<user1>,<user2>,<user3>...
-
-    For each image the annotations are collected from the
-    `Annotation` model. If a user has an annotation with a label (i.e. not `None`)
-    for that image the label's name is written in the cell; otherwise the
-    cell is left empty.
+        Image_ID,imageset,filename,<user1>,<user2>,<user3>...   # Project
+        Image_ID,filename,<user1>,<user2>,<user3>...            # ImageSet
 
     Parameters
     ----------
     obj : Project | ImageSet
-        The project or image set to export.  If a :class:`Project` is
-        provided all images belonging to the project are exported.  If an
-        :class:`ImageSet` is provided only the images in that set are
-        exported.
+        Export all images of a project (one row per image set membership),
+        or just the images of a single image set.
     sep : str, optional
         The separator character to use between fields (defaults to ',').
-
-    Yields
-    ------
-    str
-        One line of the CSV file, terminated with a newline character.
-
     """
     # Determine which images to include
     if isinstance(obj, Project):
@@ -87,8 +77,10 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
                 annotations__isnull=False,
             )
             .distinct()
-            .order_by("id")
+            .prefetch_related("imageset")
         )
+        include_set_col = True
+        pairs = _memberships(images)  # one row per (image, image set)
     else:  # isinstance(obj, ImageSet):
         imageset = obj
         project = imageset.project
@@ -101,23 +93,24 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
             .distinct()
             .order_by("id")
         )
+        include_set_col = False
+        pairs = [(image, imageset) for image in images]
 
-    header_row = ["Image_ID", "filename"] + [user.username for user in users]
-    yield sep.join(_csv_field(f, sep) for f in header_row) + "\n"
+    header = ["Image_ID", "filename"]
+    if include_set_col:
+        header.insert(1, "imageset")
+    header += [user.username for user in users]
+    yield sep.join(_csv_field(f, sep) for f in header) + "\n"
 
     # Pre-fetch all annotations for this export in one query
-    ann_map = annotation_map(
-        project,
-        users,
-        imageset=obj if isinstance(obj, ImageSet) else None,
-    )
-    image_names: dict = {}
+    ann_map = annotation_map(project, users)
 
-    for image in images:
-        image_names[image.id] = image.name  # original filename, pre-obfuscation
-
-    for image_id, image_name in sorted(image_names.items()):
-        row = ann_map.get(image_id, {})
-        row = [str(image_id), image_name] + ["|".join(row.get(u.id, [])) for u in users]
+    for image, imageset in pairs:
+        row = [str(image.id)]
+        if include_set_col:
+            row.append(imageset.name)
+        row.append(image.name)  # original filename, pre-obfuscation
+        cells = ann_map.get((image.id, imageset.id), {})
+        row += [cells.get(user.id, "") for user in users]
 
         yield sep.join(_csv_field(f, sep) for f in row) + "\n"
