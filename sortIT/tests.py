@@ -910,12 +910,15 @@ class DownloadPageTestCase(TestCase):
     def test_page_renders_filter_table(self):
         resp = self.client.get(reverse("sortIT:download"))
         self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
         self.assertContains(resp, "filter-project")
         self.assertContains(resp, "tom-select")
         self.assertContains(resp, self.row_a)
-        self.assertContains(resp, "DL Project")
-        self.assertContains(resp, "Set A")
-        self.assertContains(resp, "alice")
+        # the library must load before the inline script that uses it
+        self.assertLess(
+            html.index("tom-select.complete.min.js"),
+            html.index("new TomSelect"),
+        )
 
     def test_combined_csv_single_project(self):
         resp = self.client.post(

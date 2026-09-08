@@ -3,7 +3,6 @@
 {% block extra_head %}
   <link rel="stylesheet"
         href="{% static 'css/tom-select.bootstrap5.min.css' %}">
-  <script src="{% static 'js/tom-select.complete.min.js' %}" defer></script>
 {% endblock %}
 {% block content %}
   <div class="container my-3">
@@ -115,6 +114,7 @@
       </div>
     </form>
   </div>
+  <script src="{% static 'js/tom-select.complete.min.js' %}"></script>
   <script>
     const projectOptions = {{ projects_json|safe }};
     const imagesetOptions = {{ imagesets_json|safe }};
