@@ -914,6 +914,10 @@ class DownloadPageTestCase(TestCase):
         self.assertContains(resp, "filter-project")
         self.assertContains(resp, "tom-select")
         self.assertContains(resp, self.row_a)
+        # options are server-rendered so the native multi-selects stay
+        # usable even if the Tom Select library fails to load
+        self.assertContains(resp, '<option value="%s">' % self.project.id)
+        self.assertContains(resp, "form-select")
         # the library must load before the inline script that uses it
         self.assertLess(
             html.index("tom-select.complete.min.js"),

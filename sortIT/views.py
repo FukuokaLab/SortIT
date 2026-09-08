@@ -524,8 +524,6 @@ def download(request):
         .order_by("imageset__project__name", "imageset__name", "user__username")
     )
 
-    import json
-
     projects = {}
     imagesets = {}
     users = {}
@@ -551,15 +549,18 @@ def download(request):
         "sortIT/download.html",
         {
             "rows": rows,
-            "projects_json": json.dumps(
-                [{"value": k, "text": v} for k, v in sorted(projects.items(), key=lambda x: x[1])]
-            ),
-            "imagesets_json": json.dumps(
-                [{"value": k, "text": v} for k, v in sorted(imagesets.items(), key=lambda x: x[1])]
-            ),
-            "users_json": json.dumps(
-                [{"value": k, "text": v} for k, v in sorted(users.items(), key=lambda x: x[1])]
-            ),
+            "projects": [
+                {"id": k, "name": v}
+                for k, v in sorted(projects.items(), key=lambda x: x[1])
+            ],
+            "imagesets": [
+                {"id": k, "name": v}
+                for k, v in sorted(imagesets.items(), key=lambda x: x[1])
+            ],
+            "users": [
+                {"id": k, "name": v}
+                for k, v in sorted(users.items(), key=lambda x: x[1])
+            ],
         },
     )
 

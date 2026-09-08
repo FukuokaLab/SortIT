@@ -19,23 +19,32 @@
         <div class="col-md-4">
           <label class="form-label" for="filter-project">Project</label>
           <select id="filter-project"
+                  class="form-select"
                   multiple
                   placeholder="Filter by project…"
-                  autocomplete="off"></select>
+                  autocomplete="off">
+            {% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+          </select>
         </div>
         <div class="col-md-4">
           <label class="form-label" for="filter-imageset">Image set</label>
           <select id="filter-imageset"
+                  class="form-select"
                   multiple
                   placeholder="Filter by image set…"
-                  autocomplete="off"></select>
+                  autocomplete="off">
+            {% for s in imagesets %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
         </div>
         <div class="col-md-4">
           <label class="form-label" for="filter-user">Annotator</label>
           <select id="filter-user"
+                  class="form-select"
                   multiple
                   placeholder="Filter by annotator…"
-                  autocomplete="off"></select>
+                  autocomplete="off">
+            {% for u in users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+          </select>
         </div>
       </div>
       <div class="table-responsive">
@@ -116,51 +125,41 @@
   </div>
   <script src="{% static 'js/tom-select.complete.min.js' %}"></script>
   <script>
-    const projectOptions = {{ projects_json|safe }};
-    const imagesetOptions = {{ imagesets_json|safe }};
-    const userOptions = {{ users_json|safe }};
     const rows = Array.from(document.querySelectorAll("#download-rows tr[data-project-id]"));
     const selectAll = document.getElementById("select-all");
     const countLabel = document.getElementById("selected-count");
+    const PROJECT = document.getElementById("filter-project");
+    const IMAGESET = document.getElementById("filter-imageset");
+    const USER = document.getElementById("filter-user");
     const scopedButtons = [
       document.getElementById("download-images-button"),
       document.getElementById("download-csv-button"),
     ];
 
-    const tsProject = new TomSelect("#filter-project", {
-      plugins: ["remove_button"],
-      options: projectOptions,
-      placeholder: "Filter by project…",
-    });
-    const tsImageset = new TomSelect("#filter-imageset", {
-      plugins: ["remove_button"],
-      options: imagesetOptions,
-      placeholder: "Filter by image set…",
-    });
-    const tsUser = new TomSelect("#filter-user", {
-      plugins: ["remove_button"],
-      options: userOptions,
-      placeholder: "Filter by annotator…",
-    });
+    // values of a filter — from Tom Select when active, else the native select
+    function selectedIn(sel) {
+      if (sel.tomselect) {
+        return sel.tomselect.getValue();
+      }
+      return Array.from(sel.selectedOptions)
+        .map(o => o.value)
+        .filter(Boolean);
+    }
 
-    function visible() {
-      const ps = tsProject.getValue();
-      const ss = tsImageset.getValue();
-      const us = tsUser.getValue();
-      return rows.filter(r => {
+    let visibleRows = rows;
+
+    function applyFilters() {
+      const ps = selectedIn(PROJECT);
+      const ss = selectedIn(IMAGESET);
+      const us = selectedIn(USER);
+      visibleRows = rows.filter(r => {
         return (!ps.length || ps.includes(r.dataset.projectId)) &&
                (!ss.length || ss.includes(r.dataset.imagesetId)) &&
                (!us.length || us.includes(r.dataset.userId));
       });
-    }
-
-    let visibleRows = [];
-    function applyFilters() {
-      visibleRows = visible();
-      rows.forEach(r => (r.style.display = ""));
-      visibleRows.forEach(r => (r.style.display = ""));
-      const hidden = rows.filter(r => !visibleRows.includes(r));
-      hidden.forEach(r => (r.style.display = "none"));
+      rows.forEach(r => {
+        r.style.display = visibleRows.includes(r) ? "" : "none";
+      });
       updateCount();
     }
 
@@ -177,20 +176,28 @@
       updateCount();
     });
 
-    document.querySelectorAll(".row-check").forEach(cb => {
-      cb.addEventListener("change", () => {
+    rows.forEach(r => {
+      r.querySelector(".row-check").addEventListener("change", () => {
         updateCount();
-        if (!cb.checked) {
-          selectAll.checked = false;
-        } else {
-          selectAll.checked = visibleRows.every(r => r.querySelector(".row-check").checked);
-        }
+        selectAll.checked = false;
       });
     });
 
-    [tsProject, tsImageset, tsUser].forEach(ts =>
-      ts.on("change", applyFilters)
-    );
+    if (typeof TomSelect === "function") {
+      const filters = [
+        ["#filter-project", "Filter by project…"],
+        ["#filter-imageset", "Filter by image set…"],
+        ["#filter-user", "Filter by annotator…"],
+      ].map(([sel, placeholder]) =>
+        new TomSelect(sel, { plugins: ["remove_button"], placeholder })
+      );
+      filters.forEach(ts => ts.on("change", applyFilters));
+    } else {
+      // graceful fallback: plain multi-selects still filter the table
+      [PROJECT, IMAGESET, USER].forEach(sel =>
+        sel.addEventListener("change", applyFilters)
+      );
+    }
     applyFilters();
   </script>
 {% endblock %}
