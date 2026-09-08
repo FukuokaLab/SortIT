@@ -36,7 +36,7 @@
                     <a href="{% url 'sortIT:label' imageset.id %}"
                        class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center">
                     Select</a>
-                    {% if request.user.is_superuser %}
+                    {% if request.user.is_staff %}
                       <a href="{% url 'sortIT:upload' imageset.id %}"
                          class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center">
                       <img src="{% static 'upload.svg' %}" alt="upload" style="max-height: 20px"> Upload</a>
