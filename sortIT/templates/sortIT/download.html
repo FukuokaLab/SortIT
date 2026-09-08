@@ -1,34 +1,82 @@
 {% extends 'base.html' %}
+{% load static %}
+{% block extra_head %}
+  <link rel="stylesheet"
+        href="{% static 'css/tom-select.bootstrap5.min.css' %}">
+  <script src="{% static 'js/tom-select.complete.min.js' %}" defer></script>
+{% endblock %}
 {% block content %}
   <div class="container my-3">
     <h4>Download data</h4>
     <p class="text-secondary">
-      Select a project first, then optionally narrow down to one image set and
-      one annotator (options shrink as you filter). With only a project chosen
-      you get the whole project combined; adding an image set narrows it to
-      that set; adding an annotator keeps only their annotations.
+      Use the filter bars to narrow the table, then tick the rows you want and
+      download. Downloads are kept separate per project: picking rows from
+      several projects yields a zip with one CSV per project, while rows from a
+      single project come as one combined CSV.
     </p>
     <form action="{% url 'sortIT:download' %}" method="post" id="download-form">
       {% csrf_token %}
-      <div class="row g-3">
+      <div class="row g-3 mb-3">
         <div class="col-md-4">
-          <label class="form-label" for="project-select">Project</label>
-          <select class="form-select" id="project-select" name="project">
-            <option value="">Choose a project</option>
-          </select>
+          <label class="form-label" for="filter-project">Project</label>
+          <select id="filter-project"
+                  multiple
+                  placeholder="Filter by project…"
+                  autocomplete="off"></select>
         </div>
         <div class="col-md-4">
-          <label class="form-label" for="imageset-select">Image set</label>
-          <select class="form-select" id="imageset-select" name="imageset">
-            <option value="">All image sets</option>
-          </select>
+          <label class="form-label" for="filter-imageset">Image set</label>
+          <select id="filter-imageset"
+                  multiple
+                  placeholder="Filter by image set…"
+                  autocomplete="off"></select>
         </div>
         <div class="col-md-4">
-          <label class="form-label" for="user-select">Annotator</label>
-          <select class="form-select" id="user-select" name="user">
-            <option value="">All annotators</option>
-          </select>
+          <label class="form-label" for="filter-user">Annotator</label>
+          <select id="filter-user"
+                  multiple
+                  placeholder="Filter by annotator…"
+                  autocomplete="off"></select>
         </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th style="width: 2rem">
+                <input type="checkbox"
+                       id="select-all"
+                       title="Select all visible rows">
+              </th>
+              <th>Project</th>
+              <th>Image set</th>
+              <th>Annotator</th>
+            </tr>
+          </thead>
+          <tbody id="download-rows">
+            {% for row in rows %}
+              <tr data-project-id="{{ row.project_id }}"
+                  data-imageset-id="{{ row.imageset_id }}"
+                  data-user-id="{{ row.user_id }}">
+                <td>
+                  <input type="checkbox"
+                         class="row-check"
+                         name="row"
+                         value="{{ row.project_id }}:{{ row.imageset_id }}:{{ row.user_id }}">
+                </td>
+                <td>{{ row.project_name }}</td>
+                <td>{{ row.imageset_name }}</td>
+                <td>{{ row.username }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="text-secondary">
+                  No annotated data yet — upload images and label them first.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
       <div class="row mt-3 g-3 align-items-center">
         <div class="col-auto">
@@ -36,16 +84,19 @@
                   name="action"
                   value="download_images"
                   class="btn btn-primary"
-                  id="download-images-button">
+                  id="download-images-button"
+                  disabled>
             Download Images
           </button>
           <button type="submit"
                   name="action"
                   value="download_csv"
                   class="btn btn-primary"
-                  id="download-csv-button">
+                  id="download-csv-button"
+                  disabled>
             Download CSV
           </button>
+          <span class="text-secondary ms-2" id="selected-count">0 selected</span>
         </div>
         <div class="col-auto ms-auto">
           <button type="submit"
@@ -64,57 +115,82 @@
       </div>
     </form>
   </div>
-  {{ cascade|json_script:'cascade-data' }}
-  {{ users|json_script:'users-data' }}
   <script>
-    const cascade = JSON.parse(document.getElementById("cascade-data").textContent);
-    const userNames = JSON.parse(document.getElementById("users-data").textContent);
-    const projectSel = document.getElementById("project-select");
-    const imagesetSel = document.getElementById("imageset-select");
-    const userSel = document.getElementById("user-select");
+    const projectOptions = {{ projects_json|safe }};
+    const imagesetOptions = {{ imagesets_json|safe }};
+    const userOptions = {{ users_json|safe }};
+    const rows = Array.from(document.querySelectorAll("#download-rows tr[data-project-id]"));
+    const selectAll = document.getElementById("select-all");
+    const countLabel = document.getElementById("selected-count");
     const scopedButtons = [
       document.getElementById("download-images-button"),
       document.getElementById("download-csv-button"),
     ];
 
-    function fill(sel, items, placeholder, labelOf) {
-      sel.innerHTML = "";
-      let opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = placeholder;
-      sel.appendChild(opt);
-      for (const item of items) {
-        opt = document.createElement("option");
-        opt.value = item.id;
-        opt.textContent = labelOf(item);
-        sel.appendChild(opt);
-      }
+    const tsProject = new TomSelect("#filter-project", {
+      plugins: ["remove_button"],
+      options: projectOptions,
+      placeholder: "Filter by project…",
+    });
+    const tsImageset = new TomSelect("#filter-imageset", {
+      plugins: ["remove_button"],
+      options: imagesetOptions,
+      placeholder: "Filter by image set…",
+    });
+    const tsUser = new TomSelect("#filter-user", {
+      plugins: ["remove_button"],
+      options: userOptions,
+      placeholder: "Filter by annotator…",
+    });
+
+    function visible() {
+      const ps = tsProject.getValue();
+      const ss = tsImageset.getValue();
+      const us = tsUser.getValue();
+      return rows.filter(r => {
+        return (!ps.length || ps.includes(r.dataset.projectId)) &&
+               (!ss.length || ss.includes(r.dataset.imagesetId)) &&
+               (!us.length || us.includes(r.dataset.userId));
+      });
     }
 
-    function render() {
-      const project = cascade.find(p => p.id === Number(projectSel.value));
-      if (!project) {
-        fill(imagesetSel, [], "All image sets", () => "");
-        fill(userSel, [], "All annotators", () => "");
-        scopedButtons.forEach(b => (b.disabled = true));
-        return;
-      }
-      fill(imagesetSel, project.imagesets, "All image sets", s => s.name);
-      const set = project.imagesets.find(s => s.id === Number(imagesetSel.value));
-      const users = set ? set.users : project.users;
-      fill(userSel, users, "All annotators", u => userNames[u]);
-      scopedButtons.forEach(b => (b.disabled = false));
+    let visibleRows = [];
+    function applyFilters() {
+      visibleRows = visible();
+      rows.forEach(r => (r.style.display = ""));
+      visibleRows.forEach(r => (r.style.display = ""));
+      const hidden = rows.filter(r => !visibleRows.includes(r));
+      hidden.forEach(r => (r.style.display = "none"));
+      updateCount();
     }
 
-    projectSel.addEventListener("change", () => {
-      imagesetSel.value = "";
-      userSel.value = "";
-      render();
+    function updateCount() {
+      const n = document.querySelectorAll(".row-check:checked").length;
+      countLabel.textContent = `${n} selected`;
+      scopedButtons.forEach(b => (b.disabled = n === 0));
+    }
+
+    selectAll.addEventListener("change", () => {
+      visibleRows.forEach(r => {
+        r.querySelector(".row-check").checked = selectAll.checked;
+      });
+      updateCount();
     });
-    imagesetSel.addEventListener("change", () => {
-      userSel.value = "";
-      render();
+
+    document.querySelectorAll(".row-check").forEach(cb => {
+      cb.addEventListener("change", () => {
+        updateCount();
+        if (!cb.checked) {
+          selectAll.checked = false;
+        } else {
+          selectAll.checked = visibleRows.every(r => r.querySelector(".row-check").checked);
+        }
+      });
     });
-    render();
+
+    [tsProject, tsImageset, tsUser].forEach(ts =>
+      ts.on("change", applyFilters)
+    );
+    applyFilters();
   </script>
 {% endblock %}

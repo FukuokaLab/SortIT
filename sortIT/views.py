@@ -29,7 +29,7 @@ from django.utils import timezone
 
 from sortIT.forms import ImageForm
 from sortIT.models import Annotation, Image, ImageSet, Label, Project, UserPreferences
-from sortIT.utils import _csv_field, _memberships, generate_csv_stream
+from sortIT.utils import _csv_field, _memberships, annotation_map, generate_csv_stream
 
 logger = logging.getLogger(__name__)
 
@@ -505,147 +505,183 @@ def _safe(name) -> str:
 
 @staff_member_required
 def download(request):
-    """Cascading download page: project -> image set -> annotator.
-
-    Staff-only: it serves original filenames and all annotators' labels.
-    """
+    """Searchable download page: filter a table of
+    (project, image set, annotator) combos with data, tick rows, download."""
     if request.method == "POST":
         return _download_action(request)
 
-    users = {u.id: u.username for u in User.objects.order_by("username")}
-    cascade = []
-    for project in Project.objects.order_by("name"):
-        imagesets = [
+    combos = (
+        Annotation.objects.select_related("imageset__project", "user")
+        .values(
+            "imageset__project_id",
+            "imageset__project__name",
+            "imageset_id",
+            "imageset__name",
+            "user_id",
+            "user__username",
+        )
+        .distinct()
+        .order_by("imageset__project__name", "imageset__name", "user__username")
+    )
+
+    import json
+
+    projects = {}
+    imagesets = {}
+    users = {}
+    rows = []
+    for c in combos:
+        pid, sid, uid = c["imageset__project_id"], c["imageset_id"], c["user_id"]
+        projects[pid] = c["imageset__project__name"]
+        imagesets[sid] = c["imageset__name"]
+        users[uid] = c["user__username"]
+        rows.append(
             {
-                "id": s.id,
-                "name": s.name,
-                "users": list(
-                    Annotation.objects.filter(imageset=s)
-                    .values_list("user_id", flat=True)
-                    .distinct()
-                ),
-            }
-            for s in project.imagesets.order_by("name")
-        ]
-        cascade.append(
-            {
-                "id": project.id,
-                "name": project.name,
-                "users": list(
-                    Annotation.objects.filter(imageset__project=project)
-                    .values_list("user_id", flat=True)
-                    .distinct()
-                ),
-                "imagesets": imagesets,
+                "project_id": pid,
+                "project_name": c["imageset__project__name"],
+                "imageset_id": sid,
+                "imageset_name": c["imageset__name"],
+                "user_id": uid,
+                "username": c["user__username"],
             }
         )
+
     return render(
         request,
         "sortIT/download.html",
-        {"cascade": cascade, "users": users},
+        {
+            "rows": rows,
+            "projects_json": json.dumps(
+                [{"value": k, "text": v} for k, v in sorted(projects.items(), key=lambda x: x[1])]
+            ),
+            "imagesets_json": json.dumps(
+                [{"value": k, "text": v} for k, v in sorted(imagesets.items(), key=lambda x: x[1])]
+            ),
+            "users_json": json.dumps(
+                [{"value": k, "text": v} for k, v in sorted(users.items(), key=lambda x: x[1])]
+            ),
+        },
     )
 
 
-def _download_action(request) -> HttpResponse:
-    action = request.POST.get("action")
-    imageset = ImageSet.objects.filter(id=request.POST.get("imageset")).first()
-    project = (
-        imageset.project
-        if imageset
-        else Project.objects.filter(id=request.POST.get("project")).first()
-    )
-    user = User.objects.filter(id=request.POST.get("user")).first()
-
-    if action in ("download_all_images", "download_all_csvs"):
-        return _download_all(action)
-    if project is None:
-        return HttpResponseBadRequest("Select a project first.")
-
-    if action == "download_images":
-        return _download_images_zip(project, imageset, user)
-    if action == "download_csv":
-        return _download_csv_response(project, imageset, user)
-    return HttpResponseBadRequest(f"Unknown action: {action}")
+def _parse_selection(raw_rows) -> dict:
+    """Turn checked `project:imageset:user` values into
+    {project_id: {imageset_id: {user_id}}} for combos that really have data."""
+    selection = {}
+    for raw in raw_rows:
+        try:
+            pid, sid, uid = (int(x) for x in raw.split(":"))
+        except ValueError:
+            continue
+        if Annotation.objects.filter(
+            imageset_id=sid, imageset__project_id=pid, user_id=uid
+        ).exists():
+            selection.setdefault(pid, {}).setdefault(sid, set()).add(uid)
+    return selection
 
 
-def _download_images_zip(project, imageset=None, user=None) -> HttpResponse:
-    """Download the images of the scope as a zip of original names.
-
-    Project scope organizes files into `image set / original filename`
-    subfolders; a shared image appears once per set it belongs to.
-    """
+def _selection_csv(project, sets, users) -> str:
+    """Combined CSV for one project: rows per (image, image set) membership,
+    one column per selected annotator."""
+    users = sorted(users, key=lambda u: u.username)
+    ann_map = annotation_map(project, users)
+    set_ids = {s.id for s in sets}
     images = (
-        Image.objects.filter(imageset__project=project)
+        Image.objects.filter(
+            imageset__project=project, imageset__in=sets, annotations__user__in=users
+        )
         .distinct()
         .prefetch_related("imageset")
     )
-    if imageset is not None:
-        images = images.filter(imageset=imageset)
-    if user is not None:
-        images = images.filter(annotations__user=user)
-
-    pairs = (
-        [(image, imageset) for image in images]
-        if imageset is not None
-        else _memberships(images)
-    )
-
-    zip_io = io.BytesIO()
-    with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
-        for image, is_ in pairs:
-            src = Path(image.filepath)
-            if not src.exists():
-                continue
-            arcname = _safe(image.name)
-            if imageset is None:  # project scope: organise per image set
-                arcname = f"{_safe(is_.name)}/{arcname}"
-            zf.writestr(arcname, src.read_bytes())
-
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    stem = _safe(imageset.name if imageset else project.name)
-    response = HttpResponse(zip_io.getvalue(), content_type="application/zip")
-    response["Content-Disposition"] = f'attachment; filename="{stem}_{stamp}.zip"'
-    return response
-
-
-def _user_csv(project, imageset, user) -> str:
-    """CSV of one annotator's labels within the scope."""
-    anns = (
-        Annotation.objects.filter(user=user, imageset__project=project)
-        .select_related("image", "imageset", "label")
-        .order_by("image_id", "imageset_id")
-    )
-    if imageset is not None:
-        anns = anns.filter(imageset=imageset)
+    # only memberships that were actually annotated by a selected user
+    pairs = [
+        (image, imageset)
+        for image, imageset in _memberships(images)
+        if (image.id, imageset.id) in ann_map and imageset.id in set_ids
+    ]
 
     sep = ","
-    header = ["Image_ID"] + (["imageset"] if imageset is None else []) + [
-        "filename",
-        user.username,
-    ]
+    header = ["Image_ID", "imageset", "filename"] + [u.username for u in users]
     lines = [sep.join(_csv_field(f, sep) for f in header)]
-    for ann in anns:
-        row = [str(ann.image_id)]
-        if imageset is None:
-            row.append(ann.imageset.name)
-        row += [ann.image.name, ann.label.name if ann.label else ""]
+    for image, imageset in pairs:
+        cells = ann_map.get((image.id, imageset.id), {})
+        row = [str(image.id), imageset.name, image.name]
+        row += [cells.get(u.id, "") for u in users]
         lines.append(sep.join(_csv_field(f, sep) for f in row))
     return "\n".join(lines) + "\n"
 
 
-def _download_csv_response(project, imageset=None, user=None) -> HttpResponse:
-    if user is not None:
-        text = _user_csv(project, imageset, user)
-    elif imageset is not None:
-        text = "".join(generate_csv_stream(imageset))
-    else:
-        text = "".join(generate_csv_stream(project))
+def _download_csv_response(selection: dict) -> HttpResponse:
+    """One CSV per project; a single project is returned as a plain CSV,
+    multiple projects as a zip of `project.csv` files."""
+    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    objects = {}
+    for pid, sets_users in selection.items():
+        project = Project.objects.get(id=pid)
+        sets = ImageSet.objects.filter(id__in=sets_users)
+        users = User.objects.filter(id__in={u for us in sets_users.values() for u in us})
+        objects[project] = (sets, users)
 
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    stem = _safe(user.username if user else (imageset.name if imageset else project.name))
-    response = HttpResponse(text, content_type="text/csv")
-    response["Content-Disposition"] = f'attachment; filename="{stem}_{stamp}.csv"'
+    if len(objects) == 1:
+        project, (sets, users) = next(iter(objects.items()))
+        text = _selection_csv(project, sets, users)
+        response = HttpResponse(text, content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{_safe(project.name)}_{now}.csv"'
+        )
+        return response
+
+    zip_io = io.BytesIO()
+    with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
+        for project, (sets, users) in objects.items():
+            zf.writestr(f"{_safe(project.name)}_{now}.csv", _selection_csv(project, sets, users))
+    response = HttpResponse(zip_io.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="csvexport_{now}.zip"'
     return response
+
+
+def _download_images_zip(selection: dict) -> HttpResponse:
+    """Zip of image files for the selection, organized as
+    `project / image set / original filename`."""
+    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    zip_io = io.BytesIO()
+    with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
+        for pid, sets_users in selection.items():
+            project_name = _safe(Project.objects.get(id=pid).name)
+            user_ids = {u for us in sets_users.values() for u in us}
+            for sid, uids in sets_users.items():
+                set_name = _safe(ImageSet.objects.get(id=sid).name)
+                images = (
+                    Image.objects.filter(imageset=sid, annotations__user__in=uids)
+                    .distinct()
+                    .order_by("id")
+                )
+                for image in images:
+                    src = Path(image.filepath)
+                    if src.exists():
+                        zf.writestr(
+                            f"{project_name}/{set_name}/{_safe(image.name)}",
+                            src.read_bytes(),
+                        )
+    response = HttpResponse(zip_io.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="images_{now}.zip"'
+    return response
+
+
+def _download_action(request) -> HttpResponse:
+    action = request.POST.get("action")
+    if action in ("download_all_images", "download_all_csvs"):
+        return _download_all(action)
+
+    selection = _parse_selection(request.POST.getlist("row"))
+    if not selection:
+        return HttpResponseBadRequest("Select at least one row.")
+
+    if action == "download_images":
+        return _download_images_zip(selection)
+    if action == "download_csv":
+        return _download_csv_response(selection)
+    return HttpResponseBadRequest(f"Unknown action: {action}")
 
 
 def _download_all(action) -> HttpResponse:

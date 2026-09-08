@@ -26,8 +26,6 @@
               <a href="{% url 'sortIT:choose_img_set' project.id %}"
                  class="btn btn-primary flex-grow-1">Select</a>
               {% if request.user.is_staff %}
-                <a href="{% url 'sortIT:download' %}"
-                   class="btn btn-outline-secondary">Download</a>
                 <a href="{% url 'sortIT:down_proj_csv' project.id %}"
                    class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center gap-1">
                   <img src="{% static 'download.svg' %}" alt="download">
