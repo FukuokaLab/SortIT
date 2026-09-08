@@ -8,6 +8,8 @@
 * [ ] all negative (filtered out) tiles will be sent to "labeling" for class labeling
 * [ ] handle annotation conflicts (overwriting image labels)
 * [ ] when deleting images on the admin page, also delete the file in media/
+- [ ] finished set > thanks page redirects back to imagesets for project after timeout ( 3 seconds) + button to return to imageset page
+- [ ] download page improvements (filter by project/imageset/annotator)
 - [x] document that uploads are deduped by content hash and renamed per imageset (README assumptions) @done(20260908)
 - [x] does a label get overwritten if included in two imagesets?
   - no: separate annotations are kept per (user, image, imageset), so one image can carry a different verdict in each set

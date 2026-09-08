@@ -1,9 +1,12 @@
 import datetime
 import hashlib
+import io
 import logging
 import math
 import random
+import re
 import uuid
+import zipfile
 from io import BytesIO
 from pathlib import Path
 
@@ -11,6 +14,7 @@ import PIL.Image
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import (
     FileResponse,
@@ -25,7 +29,7 @@ from django.utils import timezone
 
 from sortIT.forms import ImageForm
 from sortIT.models import Annotation, Image, ImageSet, Label, Project, UserPreferences
-from sortIT.utils import generate_csv_stream
+from sortIT.utils import _csv_field, _memberships, generate_csv_stream
 
 logger = logging.getLogger(__name__)
 
@@ -492,3 +496,179 @@ def toggle_darkmode(request):
         prefs.dark_mode = not prefs.dark_mode
         prefs.save()
     return redirect(request.POST.get("next") or "sortIT:choose_proj")
+
+
+def _safe(name) -> str:
+    """Sanitize a name for use as a zip entry / attachment filename."""
+    return re.sub(r'[\\/:*?"<>|]', "_", str(name))
+
+
+@staff_member_required
+def download(request):
+    """Cascading download page: project -> image set -> annotator.
+
+    Staff-only: it serves original filenames and all annotators' labels.
+    """
+    if request.method == "POST":
+        return _download_action(request)
+
+    users = {u.id: u.username for u in User.objects.order_by("username")}
+    cascade = []
+    for project in Project.objects.order_by("name"):
+        imagesets = [
+            {
+                "id": s.id,
+                "name": s.name,
+                "users": list(
+                    Annotation.objects.filter(imageset=s)
+                    .values_list("user_id", flat=True)
+                    .distinct()
+                ),
+            }
+            for s in project.imagesets.order_by("name")
+        ]
+        cascade.append(
+            {
+                "id": project.id,
+                "name": project.name,
+                "users": list(
+                    Annotation.objects.filter(imageset__project=project)
+                    .values_list("user_id", flat=True)
+                    .distinct()
+                ),
+                "imagesets": imagesets,
+            }
+        )
+    return render(
+        request,
+        "sortIT/download.html",
+        {"cascade": cascade, "users": users},
+    )
+
+
+def _download_action(request) -> HttpResponse:
+    action = request.POST.get("action")
+    imageset = ImageSet.objects.filter(id=request.POST.get("imageset")).first()
+    project = (
+        imageset.project
+        if imageset
+        else Project.objects.filter(id=request.POST.get("project")).first()
+    )
+    user = User.objects.filter(id=request.POST.get("user")).first()
+
+    if action in ("download_all_images", "download_all_csvs"):
+        return _download_all(action)
+    if project is None:
+        return HttpResponseBadRequest("Select a project first.")
+
+    if action == "download_images":
+        return _download_images_zip(project, imageset, user)
+    if action == "download_csv":
+        return _download_csv_response(project, imageset, user)
+    return HttpResponseBadRequest(f"Unknown action: {action}")
+
+
+def _download_images_zip(project, imageset=None, user=None) -> HttpResponse:
+    """Download the images of the scope as a zip of original names.
+
+    Project scope organizes files into `image set / original filename`
+    subfolders; a shared image appears once per set it belongs to.
+    """
+    images = (
+        Image.objects.filter(imageset__project=project)
+        .distinct()
+        .prefetch_related("imageset")
+    )
+    if imageset is not None:
+        images = images.filter(imageset=imageset)
+    if user is not None:
+        images = images.filter(annotations__user=user)
+
+    pairs = (
+        [(image, imageset) for image in images]
+        if imageset is not None
+        else _memberships(images)
+    )
+
+    zip_io = io.BytesIO()
+    with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
+        for image, is_ in pairs:
+            src = Path(image.filepath)
+            if not src.exists():
+                continue
+            arcname = _safe(image.name)
+            if imageset is None:  # project scope: organise per image set
+                arcname = f"{_safe(is_.name)}/{arcname}"
+            zf.writestr(arcname, src.read_bytes())
+
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stem = _safe(imageset.name if imageset else project.name)
+    response = HttpResponse(zip_io.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{stem}_{stamp}.zip"'
+    return response
+
+
+def _user_csv(project, imageset, user) -> str:
+    """CSV of one annotator's labels within the scope."""
+    anns = (
+        Annotation.objects.filter(user=user, imageset__project=project)
+        .select_related("image", "imageset", "label")
+        .order_by("image_id", "imageset_id")
+    )
+    if imageset is not None:
+        anns = anns.filter(imageset=imageset)
+
+    sep = ","
+    header = ["Image_ID"] + (["imageset"] if imageset is None else []) + [
+        "filename",
+        user.username,
+    ]
+    lines = [sep.join(_csv_field(f, sep) for f in header)]
+    for ann in anns:
+        row = [str(ann.image_id)]
+        if imageset is None:
+            row.append(ann.imageset.name)
+        row += [ann.image.name, ann.label.name if ann.label else ""]
+        lines.append(sep.join(_csv_field(f, sep) for f in row))
+    return "\n".join(lines) + "\n"
+
+
+def _download_csv_response(project, imageset=None, user=None) -> HttpResponse:
+    if user is not None:
+        text = _user_csv(project, imageset, user)
+    elif imageset is not None:
+        text = "".join(generate_csv_stream(imageset))
+    else:
+        text = "".join(generate_csv_stream(project))
+
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stem = _safe(user.username if user else (imageset.name if imageset else project.name))
+    response = HttpResponse(text, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{stem}_{stamp}.csv"'
+    return response
+
+
+def _download_all(action) -> HttpResponse:
+    """Whole-app archive: one CSV per project, or images in
+    `project / image set / original filename` folders."""
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    zip_io = io.BytesIO()
+    with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
+        for project in Project.objects.order_by("name"):
+            safe = _safe(project.name)
+            if action == "download_all_csvs":
+                zf.writestr(f"{safe}.csv", "".join(generate_csv_stream(project)))
+            else:  # download_all_images
+                images = (
+                    Image.objects.filter(imageset__project=project)
+                    .distinct()
+                    .prefetch_related("imageset")
+                )
+                for image, is_ in _memberships(images):
+                    src = Path(image.filepath)
+                    if src.exists():
+                        arcname = f"{safe}/{_safe(is_.name)}/{_safe(image.name)}"
+                        zf.writestr(arcname, src.read_bytes())
+    response = HttpResponse(zip_io.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="sortit_all_{stamp}.zip"'
+    return response

@@ -219,6 +219,8 @@ For an imageset with one label, you can upload patches, then click on patches wh
 5. Exporting Labels
 For an individual image set, click "Export CSV" to get a spreadsheet of images and labels for each user. At the project level, the same button downloads a single CSV with one row per image *per image set* — an `imageset` column shows which set each row belongs to (an image in two image sets appears in two rows).
 
+Staff also have a dedicated **download page** (the "Download" button on the project list): pick a project, then optionally an image set and an annotator — options narrow as you filter. It can export a zip of the image files (under their original names), a scope-filtered CSV, or a whole-app archive (per-project image folders or per-project CSVs).
+
 > [!IMPORTANT]
 > Please note that this app does not create patches/tiles from WSI. You must do this separately, then you can upload the patches to this page for labeling.
 

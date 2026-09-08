@@ -1,3 +1,8 @@
+import csv
+import io
+import zipfile
+from pathlib import Path
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
@@ -859,6 +864,129 @@ class UploadDedupTestCase(TestCase):
         self.assertIn("inline", resp["Content-Disposition"])
         self.assertIn("secret_slide.png", resp["Content-Disposition"])
 
+
+
+class DownloadPageTestCase(TestCase):
+    """Cascading project > image set > annotator download page."""
+
+    def _make_image(self, name, imageset, color):
+        import tempfile
+
+        import PIL.Image
+
+        tmpdir = Path(tempfile.mkdtemp())
+        src = tmpdir / f"{name}.jpg"
+        PIL.Image.new("RGB", (16, 16), color).save(src, "JPEG")
+        image = Image.objects.create(filepath=str(src), name=name, sha256=name)
+        image.imageset.add(imageset)
+        return image
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            username="downstaff", password="pw", is_staff=True
+        )
+        self.alice = User.objects.create_user(username="alice", password="pw")
+        self.project = Project.objects.create(name="DL Project")
+        self.project.users.add(self.staff, self.alice)
+        self.set_a = ImageSet.objects.create(name="Set A", project=self.project)
+        self.set_b = ImageSet.objects.create(name="Set B", project=self.project)
+        self.label = Label.objects.create(name="pos", project=self.project)
+        self.set_a.labels.add(self.label)
+        self.set_b.labels.add(self.label)
+        self.client.force_login(self.staff)
+
+    def test_page_renders_cascade(self):
+        resp = self.client.get(reverse("sortIT:download"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "cascade-data")
+        self.assertContains(resp, "DL Project")
+        self.assertContains(resp, "Set A")
+
+    def test_project_only_csv_is_combined(self):
+        img_a = self._make_image("a.png", self.set_a, (255, 0, 0))
+        Annotation.objects.create(
+            image=img_a, label=self.label, user=self.alice, imageset=self.set_a
+        )
+        resp = self.client.post(
+            reverse("sortIT:download"),
+            {"action": "download_csv", "project": self.project.id},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/csv")
+        rows = list(csv.reader(io.StringIO(resp.content.decode())))
+        self.assertEqual(rows[0], ["Image_ID", "imageset", "filename", "downstaff", "alice"])
+
+    def test_project_plus_imageset_csv(self):
+        img = self._make_image("a.png", self.set_a, (255, 0, 0))
+        Annotation.objects.create(
+            image=img, label=self.label, user=self.alice, imageset=self.set_a
+        )
+        resp = self.client.post(
+            reverse("sortIT:download"),
+            {"action": "download_csv", "project": self.project.id, "imageset": self.set_a.id},
+        )
+        rows = list(csv.reader(io.StringIO(resp.content.decode())))
+        # imageset-scoped: no imageset column, exactly the set's data
+        self.assertEqual(rows[0], ["Image_ID", "filename", "downstaff", "alice"])
+        self.assertEqual(len(rows), 2)
+
+    def test_annotator_csv_has_only_their_labels(self):
+        img_a = self._make_image("a.png", self.set_a, (255, 0, 0))
+        img_b = self._make_image("b.png", self.set_b, (0, 255, 0))
+        Annotation.objects.create(
+            image=img_a, label=self.label, user=self.alice, imageset=self.set_a
+        )
+        Annotation.objects.create(
+            image=img_b, label=self.label, user=self.staff, imageset=self.set_b
+        )
+        resp = self.client.post(
+            reverse("sortIT:download"),
+            {"action": "download_csv", "project": self.project.id, "user": self.alice.id},
+        )
+        rows = list(csv.reader(io.StringIO(resp.content.decode())))
+        self.assertEqual(
+            rows[0], ["Image_ID", "imageset", "filename", "alice"]
+        )
+        # only alice's annotation appears, named under her column
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1][3], "pos")
+
+    def test_download_images_zip_uses_original_names(self):
+        self._make_image("secret.png", self.set_a, (255, 0, 0))
+        self._make_image("other.png", self.set_b, (0, 0, 255))
+        resp = self.client.post(
+            reverse("sortIT:download"),
+            {"action": "download_images", "project": self.project.id},
+        )
+        self.assertEqual(resp["Content-Type"], "application/zip")
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            names = zf.namelist()
+        # project scope: one entry per set membership, original names, no uuid
+        self.assertEqual(names, ["Set A/secret.png", "Set B/other.png"])
+
+    def test_download_all_csvs_one_per_project(self):
+        self._make_image("a.png", self.set_a, (255, 0, 0))
+        resp = self.client.post(
+            reverse("sortIT:download"), {"action": "download_all_csvs"}
+        )
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            self.assertEqual(zf.namelist(), ["DL Project.csv"])
+            rows = list(csv.reader(io.StringIO(zf.read("DL Project.csv").decode())))
+            self.assertEqual(rows[0][:3], ["Image_ID", "imageset", "filename"])
+
+    def test_download_all_images_nested(self):
+        self._make_image("a.png", self.set_a, (255, 0, 0))
+        resp = self.client.post(
+            reverse("sortIT:download"), {"action": "download_all_images"}
+        )
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            self.assertEqual(zf.namelist(), ["DL Project/Set A/a.png"])
+
+    def test_requires_project_for_scoped_download(self):
+        resp = self.client.post(
+            reverse("sortIT:download"), {"action": "download_images"}
+        )
+        self.assertEqual(resp.status_code, 400)
 
 
 class BackButtonTestCase(TestCase):
