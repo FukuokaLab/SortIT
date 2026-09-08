@@ -3,6 +3,7 @@ import hashlib
 import logging
 import math
 import random
+import uuid
 from io import BytesIO
 from pathlib import Path
 
@@ -64,7 +65,9 @@ def make_montage(project):
 def show_image(request, image_id):
     if request.method == "GET":
         image = Image.objects.get(id=image_id)
-        return FileResponse(open(image.filepath, "rb"))
+        # serve the obfuscated file, but hand the browser the original name
+        # (inline keeps <img> tags working; Save-as uses the real filename)
+        return FileResponse(open(image.filepath, "rb"), filename=image.name)
     return HttpResponseBadRequest()
 
 
@@ -121,12 +124,10 @@ def process_image(img, imageset_id, digest):
                         None,
                     )
                     imgname = Path(img._get_name())
-                    ext = imgname.name.split(".")[-1]
 
-                    now = datetime.datetime.now()
-                    time = now.strftime("%Y%m%d-%H%M%S")
-
-                    fname = f"{imgname.stem}___{imageset_id}___{time}.{ext}.jpg"
+                    # store under an obfuscated name so the original filename
+                    # is never exposed (CSV/downloads serve the original name)
+                    fname = f"{uuid.uuid4().hex}.jpg"
 
                     img_dst = Path(settings.MEDIA_ROOT).joinpath(fname)
 

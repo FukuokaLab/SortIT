@@ -837,6 +837,28 @@ class UploadDedupTestCase(TestCase):
         self.assertEqual(r2.status_code, 302)
         self.assertEqual(Image.objects.count(), 2)
 
+    def test_stored_filename_is_obfuscated_but_name_is_original(self):
+        import tempfile
+
+        self.media_tmp = tempfile.mkdtemp()
+        self.client.force_login(self.user)
+
+        r = self._upload(self.set_a, [("secret_slide.png", self._img_bytes((10, 20, 30)))])
+        self.assertEqual(r.status_code, 302)
+
+        image = Image.objects.get()
+        # original name kept for CSV/downloads
+        self.assertEqual(image.name, "secret_slide.png")
+        # stored name hides it completely
+        stored = Path(image.filepath).name
+        self.assertNotIn("secret_slide", stored)
+        self.assertTrue(stored.endswith(".jpg"))
+        self.assertTrue(Path(image.filepath).exists())
+        # show_image hands back the original name for Save-as
+        resp = self.client.get(reverse("sortIT:show_img", args=[image.id]))
+        self.assertIn("inline", resp["Content-Disposition"])
+        self.assertIn("secret_slide.png", resp["Content-Disposition"])
+
 
 
 class BackButtonTestCase(TestCase):

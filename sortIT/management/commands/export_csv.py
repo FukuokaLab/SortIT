@@ -71,7 +71,7 @@ class Command(BaseCommand):
 
         with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["Image_ID", "filepath"] + [u.username for u in users])
+            writer.writerow(["Image_ID", "filename"] + [u.username for u in users])
 
             for image_batch in batched_queryset(base_images, batch_size=500):
                 image_ids = [img.id for img in image_batch]
@@ -81,7 +81,7 @@ class Command(BaseCommand):
                 for image in image_batch:
                     row = ann_map.get(image.id, {})
                     writer.writerow(
-                        [str(image.id), image.filepath]
+                        [str(image.id), image.name]
                         + ["|".join(row.get(u.id, [])) for u in users]
                     )
 

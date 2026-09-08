@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from pathlib import Path
 
 from .models import Annotation, Image, ImageSet, Project
 
@@ -47,9 +48,9 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
     """Generate a CSV formatted stream of image annotations.
 
     This generator yields lines of a CSV file that contains each image's
-    id and filepath followed by the annotation labels for every user that
-    has access to the project (or image set). The first yielded line is the
-    header row containing the column names.
+    id and original filename followed by the annotation labels for every
+    user that has access to the project (or image set). The first yielded
+    line is the header row containing the column names.
 
     The CSV format is:
 
@@ -101,7 +102,7 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
             .order_by("id")
         )
 
-    header_row = ["Image_ID", "filepath"] + [user.username for user in users]
+    header_row = ["Image_ID", "filename"] + [user.username for user in users]
     yield sep.join(_csv_field(f, sep) for f in header_row) + "\n"
 
     # Pre-fetch all annotations for this export in one query
@@ -110,13 +111,13 @@ def generate_csv_stream(obj: Project | ImageSet, sep: str = ",") -> Generator[st
         users,
         imageset=obj if isinstance(obj, ImageSet) else None,
     )
-    image_paths: dict = {}
+    image_names: dict = {}
 
     for image in images:
-        image_paths[image.id] = image.filepath
+        image_names[image.id] = image.name  # original filename, pre-obfuscation
 
-    for image_id, image_path in sorted(image_paths.items()):
+    for image_id, image_name in sorted(image_names.items()):
         row = ann_map.get(image_id, {})
-        row = [str(image_id), image_path] + ["|".join(row.get(u.id, [])) for u in users]
+        row = [str(image_id), image_name] + ["|".join(row.get(u.id, [])) for u in users]
 
         yield sep.join(_csv_field(f, sep) for f in row) + "\n"
