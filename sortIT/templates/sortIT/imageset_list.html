@@ -36,14 +36,16 @@
                     <a href="{% url 'sortIT:label' imageset.id %}"
                        class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center">
                     Select</a>
-                    <a href="{% url 'sortIT:upload' imageset.id %}"
-                       class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center">
-                    <img src="{% static 'upload.svg' %}" alt="upload" style="max-height: 20px"> Upload</a>
-                    <a href="{% url 'sortIT:down_imset_csv' imageset.id %}"
-                       class="btn btn-outline-secondary">
-                    <img src="{% static 'download.svg' %}"
-                         alt="download"
-                         style="max-height: 20px"> Export CSV</a>
+                    {% if request.user.is_superuser %}
+                      <a href="{% url 'sortIT:upload' imageset.id %}"
+                         class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center">
+                      <img src="{% static 'upload.svg' %}" alt="upload" style="max-height: 20px"> Upload</a>
+                      <a href="{% url 'sortIT:down_imset_csv' imageset.id %}"
+                         class="btn btn-outline-secondary">
+                      <img src="{% static 'download.svg' %}"
+                           alt="download"
+                           style="max-height: 20px"> Export CSV</a>
+                    {% endif %}
                   </div>
                 </div>
               </div>
