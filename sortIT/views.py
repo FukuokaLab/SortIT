@@ -216,7 +216,9 @@ def label(request, imageset_id):
             image = get_object_or_404(Image, id=back_image_id, imageset=imageset)
         else:
             unlabeled_images = images.exclude(
-                annotations__user=request.user, annotations__imageset=imageset
+                annotations__in=Annotation.objects.filter(
+                    user=request.user, imageset=imageset
+                )
             )
             if unlabeled_images:
                 image = random.choice(unlabeled_images)
@@ -225,7 +227,9 @@ def label(request, imageset_id):
 
     # Calculate progress
     unlabeled_count = images.exclude(
-        annotations__user=request.user, annotations__imageset=imageset
+        annotations__in=Annotation.objects.filter(
+            user=request.user, imageset=imageset
+        )
     ).count()
     total_images = images.count()
     labeled_images = total_images - unlabeled_count
@@ -306,7 +310,9 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
 
     # Choose un-sorted images
     unsorted_count = images.exclude(
-        annotations__user=request.user, annotations__imageset=imageset
+        annotations__in=Annotation.objects.filter(
+            user=request.user, imageset=imageset
+        )
     ).count()
     if unsorted_count:
         # number of images to show
@@ -332,7 +338,9 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
             n_to_show = min(n_images, unsorted_count)
             images = list(
                 images.exclude(
-                    annotations__user=request.user, annotations__imageset=imageset
+                    annotations__in=Annotation.objects.filter(
+                        user=request.user, imageset=imageset
+                    )
                 ).order_by("?")[:n_to_show]
             )
     else:

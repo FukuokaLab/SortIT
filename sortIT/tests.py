@@ -617,17 +617,19 @@ class AdminTestCase(TestCase):
                 lines = zf.read(name).decode().strip().split("\n")
                 self.assertEqual(
                     lines[0],
-                    "Image_ID,Image,admin",
+                    "Image_ID,imageset,filename,admin",
                     f"bad header in {name}: {lines[0]}",
                 )
                 self.assertEqual(
-                    lines.count("Image_ID,Image,admin"),
+                    lines.count("Image_ID,imageset,filename,admin"),
                     1,
                     f"duplicate header in {name}",
                 )
                 # row matches its own project: "Zip Proj <i>...csv" -> "<i>.jpg"
                 i = name.split(" ")[2].split("_")[0]
-                self.assertEqual(lines[1].split(",")[1:], [f"{i}.jpg", "Keep"])
+                self.assertEqual(
+                    lines[1].split(",")[1:], [f'"Set {i}"', f"{i}.jpg", "Keep"]
+                )
 
 
 class AnnotationMapTestCase(TestCase):
@@ -1204,3 +1206,152 @@ class SharedImageTestCase(TestCase):
         self.assertNotIn("dog", csv_a)
         self.assertIn("x.png,dog", csv_b)
         self.assertNotIn("cat", csv_b)
+
+class TwoUserFinishTestCase(TestCase):
+    """Regression: user B must not be sent to finish just because user A
+    completed all their annotations for an imageset."""
+
+    def _make(self, images=4, single_label=False):
+        self.project = Project.objects.create(name="TwoUser Proj", desc="")
+        self.user_a = User.objects.create_user(
+            username="user_a", email="a@example.com", password="testpass123"
+        )
+        self.user_b = User.objects.create_user(
+            username="user_b", email="b@example.com", password="testpass123"
+        )
+        self.project.users.add(self.user_a, self.user_b)
+        self.cat = Label.objects.create(name="cat", desc="", project=self.project)
+        label_names = ["cat"] if single_label else ["cat", "dog"]
+        self.project.labels  # noqa: B018
+        self.imageset = ImageSet.objects.create(
+            name="Shared Set", desc="", project=self.project
+        )
+        for name in label_names:
+            self.imageset.labels.add(
+                Label.objects.create(name=name, desc="", project=self.project)
+            )
+        self.imgs = [
+            Image.objects.create(filepath=f"/tmp/tu{i}.png", name=f"tu{i}.png")
+            for i in range(images)
+        ]
+        self.imageset.images.add(*self.imgs)
+
+    def _login(self, username):
+        c = Client()
+        self.assertTrue(c.login(username=username, password="testpass123"))
+        return c
+
+    def test_label_mode_b_unaffected_by_a_finishing(self):
+        self._make(single_label=False)
+        a = self._login("user_a")
+        for img in self.imgs:
+            a.post(
+                reverse("sortIT:label_post"),
+                {"image": img.id, "label": self.cat.id, "imageset": self.imageset.id},
+            )
+        # A is done; B has made zero annotations
+        self.assertEqual(Annotation.objects.filter(user=self.user_a).count(), 4)
+        self.assertEqual(Annotation.objects.filter(user=self.user_b).count(), 0)
+
+        b = self._login("user_b")
+        resp = b.get(reverse("sortIT:label", args=[self.imageset.id]))
+        self.assertEqual(resp.status_code, 200)  # B gets a labeling page
+        self.assertNotContains(resp, "You've finished")
+
+    def test_sort_mode_b_unaffected_by_a_finishing(self):
+        self._make(single_label=True)
+        # A sorts every image in one batch
+        imgs = ",".join(str(i.id) for i in self.imgs)
+        a = self._login("user_a")
+        a.post(
+            reverse("sortIT:sort_post"),
+            {
+                "imageset": self.imageset.id,
+                "selected_images": "",
+                "displayed_images": imgs,
+            },
+        )
+        self.assertEqual(Annotation.objects.filter(user=self.user_a).count(), 4)
+        self.assertEqual(Annotation.objects.filter(user=self.user_b).count(), 0)
+
+        b = self._login("user_b")
+        resp = b.get(reverse("sortIT:sort", args=[self.imageset.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "You've finished")
+
+class SetCrossContaminationTestCase(TestCase):
+    """User A labeled a multilabel set (Pos+Neg), then opens a second set
+    that only has "Pos" (sort mode) with the same images."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user_a = User.objects.create_user(
+            username="user_a", email="a@x.com", password="testpass123"
+        )
+        self.project = Project.objects.create(name="Cross Proj", desc="")
+        self.project.users.add(self.user_a)
+        self.pos = Label.objects.create(name="Pos", desc="", project=self.project)
+        self.neg = Label.objects.create(name="Neg", desc="", project=self.project)
+        self.set1 = ImageSet.objects.create(
+            name="ML Set", desc="", project=self.project
+        )
+        self.set2 = ImageSet.objects.create(
+            name="Sort Set", desc="", project=self.project
+        )
+        self.set1.labels.add(self.pos, self.neg)
+        self.set2.labels.add(self.pos)
+        self.imgs = [
+            Image.objects.create(filepath=f"/tmp/cross{i}.png", name=f"cross{i}.png")
+            for i in range(4)
+        ]
+        self.set1.images.add(*self.imgs)
+        self.set2.images.add(*self.imgs)
+        self.client.login(username="user_a", password="testpass123")
+
+    def test_set2_sort_is_not_finish_after_labeling_set1(self):
+        # Another user (B) sorts the WHOLE of set 2 first, so set 2 has
+        # annotations by someone else - the production shape of the bug.
+        user_b = User.objects.create_user(
+            username="user_b", email="b@x.com", password="testpass123"
+        )
+        self.project.users.add(user_b)
+        b = Client()
+        self.assertTrue(b.login(username="user_b", password="testpass123"))
+        all_ids = ",".join(str(i.id) for i in self.imgs)
+        b.post(
+            reverse("sortIT:sort_post"),
+            {
+                "imageset": self.set2.id,
+                "selected_images": "",
+                "displayed_images": all_ids,
+            },
+        )
+        self.assertEqual(
+            Annotation.objects.filter(user=user_b, imageset=self.set2).count(), 4
+        )
+
+        # User A labels every image "Pos" in the multilabel set 1
+        for img in self.imgs:
+            self.client.post(
+                reverse("sortIT:label_post"),
+                {
+                    "image": img.id,
+                    "label": self.pos.id,
+                    "imageset": self.set1.id,
+                },
+            )
+        self.assertEqual(
+            Annotation.objects.filter(
+                user=self.user_a, imageset=self.set1
+            ).count(),
+            4,
+        )
+        # No set-2 annotations for A
+        self.assertEqual(
+            Annotation.objects.filter(user=self.user_a, imageset=self.set2).count(),
+            0,
+        )
+        # A must still be able to sort set 2
+        resp = self.client.get(reverse("sortIT:sort", args=[self.set2.id]))
+        self.assertEqual(resp.status_code, 200, resp.get("Location"))
+        self.assertNotContains(resp, "You've finished")

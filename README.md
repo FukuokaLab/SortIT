@@ -202,7 +202,7 @@ If you see the login page, the server is running correctly.
 
 1. Creating a Project
 After setting up the administrator account (`createsuperuser`) and logging in for the first time, the app will direct to the "Add project" page. 
-Fill out the fields (description fields are always optional), and click save.
+Fill out the fields (description fields are always optional), and click save. Remember to come back to add users to this project, once users are registered.
 
 2. Creating an Image Set
 On the left side of the window, click "Add" next to "Image sets". Fill out the name, add it under the project created in step one, and create labels for this image set. Labels can be created by using the link on the sidebar, or by clicking the green + mark on this page.
