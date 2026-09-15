@@ -80,7 +80,7 @@ def show_montage(request, project_id):
     if request.method == "GET":
         try:
             response = FileResponse(
-                open(f"{settings.MEDIA_ROOT}/montage_{project_id}.jpg", "rb"),
+                open(f"{settings.MEDIA_ROOT}/montage_{project_id}.jpg", "rb")  # noqa: SIM115
             )
         except FileNotFoundError:
             logger.warning(
@@ -227,9 +227,7 @@ def label(request, imageset_id):
 
     # Calculate progress
     unlabeled_count = images.exclude(
-        annotations__in=Annotation.objects.filter(
-            user=request.user, imageset=imageset
-        )
+        annotations__in=Annotation.objects.filter(user=request.user, imageset=imageset)
     ).count()
     total_images = images.count()
     labeled_images = total_images - unlabeled_count
@@ -310,9 +308,7 @@ def sort(request: HttpRequest, imageset_id: int) -> HttpResponse:
 
     # Choose un-sorted images
     unsorted_count = images.exclude(
-        annotations__in=Annotation.objects.filter(
-            user=request.user, imageset=imageset
-        )
+        annotations__in=Annotation.objects.filter(user=request.user, imageset=imageset)
     ).count()
     if unsorted_count:
         # number of images to show
@@ -438,9 +434,7 @@ def undo(request, imageset_id):
             return redirect(
                 f"{reverse('sortIT:sort', args=[imageset_id])}?images={','.join(ids)}"
             )
-        return redirect(
-            f"{reverse('sortIT:label', args=[imageset_id])}?image={ids[0]}"
-        )
+        return redirect(f"{reverse('sortIT:label', args=[imageset_id])}?image={ids[0]}")
     return redirect("sortIT:label", imageset_id=imageset_id)
 
 
@@ -458,7 +452,7 @@ def choose_proj(request):
 @login_required
 def download_project_csv(request, project_id):
     if request.method == "GET":
-        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
         project = Project.objects.get(id=project_id)
         csv_generator = generate_csv_stream(project)
         response = StreamingHttpResponse(csv_generator, content_type="text/csv")
@@ -484,7 +478,7 @@ def choose_img_set(request, project_id):
 @login_required
 def download_imageset_csv(request, imageset_id):
     if request.method == "GET":
-        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
         imageset = ImageSet.objects.get(id=imageset_id)
         csv_generator = generate_csv_stream(imageset)
         response = StreamingHttpResponse(csv_generator, content_type="text/csv")
@@ -623,12 +617,14 @@ def _selection_csv(project, sets, users) -> str:
 def _download_csv_response(selection: dict) -> HttpResponse:
     """One CSV per project; a single project is returned as a plain CSV,
     multiple projects as a zip of `project.csv` files."""
-    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    now = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
     objects = {}
     for pid, sets_users in selection.items():
         project = Project.objects.get(id=pid)
         sets = ImageSet.objects.filter(id__in=sets_users)
-        users = User.objects.filter(id__in={u for us in sets_users.values() for u in us})
+        users = User.objects.filter(
+            id__in={u for us in sets_users.values() for u in us}
+        )
         objects[project] = (sets, users)
 
     if len(objects) == 1:
@@ -643,7 +639,9 @@ def _download_csv_response(selection: dict) -> HttpResponse:
     zip_io = io.BytesIO()
     with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
         for project, (sets, users) in objects.items():
-            zf.writestr(f"{_safe(project.name)}_{now}.csv", _selection_csv(project, sets, users))
+            zf.writestr(
+                f"{_safe(project.name)}_{now}.csv", _selection_csv(project, sets, users)
+            )
     response = HttpResponse(zip_io.getvalue(), content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="csvexport_{now}.zip"'
     return response
@@ -652,12 +650,11 @@ def _download_csv_response(selection: dict) -> HttpResponse:
 def _download_images_zip(selection: dict) -> HttpResponse:
     """Zip of image files for the selection, organized as
     `project / image set / original filename`."""
-    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    now = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
     zip_io = io.BytesIO()
     with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
         for pid, sets_users in selection.items():
             project_name = _safe(Project.objects.get(id=pid).name)
-            user_ids = {u for us in sets_users.values() for u in us}
             for sid, uids in sets_users.items():
                 set_name = _safe(ImageSet.objects.get(id=sid).name)
                 images = (
@@ -696,7 +693,7 @@ def _download_action(request) -> HttpResponse:
 def _download_all(action) -> HttpResponse:
     """Whole-app archive: one CSV per project, or images in
     `project / image set / original filename` folders."""
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
     zip_io = io.BytesIO()
     with zipfile.ZipFile(zip_io, "w", zipfile.ZIP_DEFLATED) as zf:
         for project in Project.objects.order_by("name"):

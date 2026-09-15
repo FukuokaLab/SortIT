@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 NOTE: this should be run inside the docker container to work on the
 container database at /app/data/db.sqlite3

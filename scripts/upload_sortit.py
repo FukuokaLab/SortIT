@@ -1,10 +1,9 @@
 # upload_script.py
 import os
+import sys
 from pathlib import Path
 
 import tqdm
-import sys
-
 
 # 1. Point to your Django project root (where manage.py lives)
 PROJECT_ROOT = os.getenv("PWD")

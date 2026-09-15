@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Export annotations as csv
 usage:
@@ -11,7 +10,7 @@ from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
 from sortIT.models import Image, Project
-from sortIT.utils import annotation_map, _memberships
+from sortIT.utils import _memberships, annotation_map
 
 __date__ = "2026-01-21"
 __email__ = " ethan <at> nagasaki-u.ac.jp "
@@ -62,8 +61,7 @@ class Command(BaseCommand):
         with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
-                ["Image_ID", "imageset", "filename"]
-                + [u.username for u in users]
+                ["Image_ID", "imageset", "filename"] + [u.username for u in users]
             )
 
             ann_map = annotation_map(project, users)
@@ -77,7 +75,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Exported annotations from project '{project.name}' "
-                f"to {output_path}"
+                f"Exported annotations from project '{project.name}' to {output_path}"
             )
         )

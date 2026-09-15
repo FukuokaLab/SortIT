@@ -30,7 +30,7 @@ class ProjectAdmin(admin.ModelAdmin):
         If only one project is selected, return a single CSV file.
         For multiple projects, package CSVs into a ZIP archive.
         """
-        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
         if len(queryset) == 1:
             project = queryset[0]
             csv_generator = generate_csv_stream(project)
@@ -89,7 +89,7 @@ class ImageSetAdmin(admin.ModelAdmin):
         """
         Export all labeling data for each user by csv
         """
-        current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
         imageset = queryset[0]
         csv_generator = generate_csv_stream(imageset)
         response = StreamingHttpResponse(csv_generator, content_type="text/csv")

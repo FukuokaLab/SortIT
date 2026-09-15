@@ -19,3 +19,4 @@ tmp
 /.conductor
 *.csv
 /staticfiles
+.todo.md

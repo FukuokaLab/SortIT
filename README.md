@@ -4,22 +4,26 @@
 - [SortIT](#sortit)
   - [Backgound](#backgound)
   - [Getting Started](#getting-started)
-    - [Local Development](#local-development)
-    - [Docker](#docker)
-  - [Env files](#env-files)
-  - [Development Server](#development-server)
+    - [Requirements](#requirements)
+    - [Installation](#installation)
   - [Using SortIT](#using-sortit)
-  - [Data Model](#data-model)
-  - [Tiling WSI with QuPath](#tiling-wsi-with-qupath)
-  - [MIXTURE Method](#mixture-method)
-  - [Basic Configuration](#basic-configuration)
-  - [File Structure & Key Files](#file-structure-key-files)
-  - [Scripts (`scripts/`)](#scripts-scripts)
-  - [Management Commands](#management-commands)
-  - [Adding Features](#adding-features)
-  - [Production Deployment](#production-deployment)
-  - [Troubleshooting](#troubleshooting)
-    - [Assumptions](#assumptions)
+    - [Tiling WSI with QuPath](#tiling-wsi-with-qupath)
+    - [MIXTURE Method](#mixture-method)
+  - [Development](#development)
+    - [Local Development](#local-development)
+    - [Docker Compose](#docker-compose)
+    - [Env files](#env-files)
+    - [Development Server](#development-server)
+    - [Basic Configuration](#basic-configuration)
+    - [Data Model](#data-model)
+    - [File Structure & Key Files](#file-structure-key-files)
+    - [Scripts (`scripts/`)](#scripts-scripts)
+    - [Management Commands](#management-commands)
+    - [Adding Features](#adding-features)
+    - [Production Deployment](#production-deployment)
+    - [Troubleshooting](#troubleshooting)
+      - [Assumptions](#assumptions)
+  - [Testing](#testing)
   - [LICENCE](#licence)
 <!--toc:end-->
 
@@ -31,7 +35,119 @@ SortIT is a web application that allows multiple users to label the same image s
 
 ![SortIT Screenshot](docs/figures/readme1.png)
 
-## Getting Started  
+## Getting Started
+
+### Requirements
+
+SortIT can be run as a Docker container. 
+It should be able to run on any computer than can install Docker.
+
+### Installation
+
+First, create a folder called `media` to store your SortIT image data.
+
+```bash
+docker run -p 8000:8000 \
+  -e SECRET_KEY=change-me \
+  -e DJANGO_SUPERUSER_USERNAME=admin \
+  -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=change-me \
+  -v sqlitedata:/app/data \
+  -v path/to/media:/app/media \
+  ghcr.io/fukuokalab/sortit
+```
+
+
+You can then open any browser and type into the address bar:
+`localhost:8000`
+
+You should see the login page. Please login with your set admin account information.
+
+Make sure to:
+1. change the `path/to/media` to point to the actual path to your `media` folder
+2. update the secret key to a random string of letters and numbers
+3. set your admin account information
+
+The `docker run` command may look slightly different on Windows systems.
+See [Docker documentation here](https://docs.docker.com/reference/cli/docker/container/run/)
+
+For more advanced configurations, such as to serve this app remotely, please see the [Development](#development) section below.
+
+---
+
+## Using SortIT
+
+1. Creating a Project
+After setting up the administrator account (`createsuperuser`) and logging in for the first time, the app will direct to the "Add project" page. 
+Fill out the fields (description fields are always optional), and click save. Remember to come back to add users to this project, once users are registered.
+
+2. Creating an Image Set
+On the left side of the window, click "Add" next to "Image sets". Fill out the name, add it under the project created in step one, and create labels for this image set. Labels can be created by using the link on the sidebar, or by clicking the green + mark on this page.
+
+3. Uploading Images
+Once the image set is created, click "View Site" at the top of the page.
+Select your project, then click "Upload" for the image set you would like to upload images for.
+Click on `Folders` or `Files` to open a file selection window, or drag and drop your tiles. 
+Click "Upload" to begin processing your files.
+
+4. Sorting Image Sets
+For an imageset with one label, you can upload patches, then click on patches which do not belong. Annotations will be saved per-image, per-user.
+
+5. Exporting Labels
+For an individual image set, click "Export CSV" to get a spreadsheet of images and labels for each user. At the project level, the same button downloads a single CSV with one row per image *per image set* — an `imageset` column shows which set each row belongs to (an image in two image sets appears in two rows).
+
+Staff also have a dedicated **download page** (the "Download" link in the navbar): filter a table of (project, image set, annotator) combinations that have data, tick the rows you want, and download. Selections spanning several projects come as a zip with one CSV per project; a single project is one combined CSV. It can also export a zip of the image files (under their original names) or a whole-app archive (per-project image folders or per-project CSVs).
+
+> [!IMPORTANT]
+> Please note that this app does not create patches/tiles from WSI. You must do this separately, then you can upload the patches to this page for labeling.
+
+---
+
+### Tiling WSI with QuPath
+
+Here is a code snippet which should be able to export patches from QuPath (tested on QuPath v0.5)
+
+```groovy
+// Author: Tom Bisson
+// Affiliation: Institute of Pathology, Charité-Universitätsmedizin Berlin, Berlin, Germany
+// Date: January 17, 2024
+// Instructions: First higlight the area of tissue that should be exported with an annotation tool
+
+int patch_size = 224
+def image_extension = ".png"
+def image_data = getCurrentImageData()
+
+def out_path = "INSERT PATH HERE e.g. C:\\Users\\example\\Documents\\images for windows"
+
+tile_exporter = new TileExporter(image_data)
+tile_exporter.imageExtension(image_extension)
+tile_exporter.tileSize(patch_size)
+tile_exporter.annotatedTilesOnly(true)
+tile_exporter.writeTiles(out_path)
+```
+
+---
+
+### MIXTURE Method
+
+Similar to the method described in the [MIXTURE paper (W. Uegami et al 2022)](https://www.nature.com/articles/s41379-022-01025-7), one way to use this app is as follows:
+
+1. Extract patch features using a feature extraction model.
+Pretrained feature extractors are avaiable from pytorch `timm` and various foundation models are now becoming popular.
+
+2. Cluster the patch features
+Use a clustering library like [scikit-learn](https://scikit-learn.org/stable/modules/clustering.html#clustering) to cluster the patches by their feature embeddings. KMeans is fast and typically does a good enough job with `n_clusters = 50`.
+
+3. Medical experts can identify clusters
+Trained experts can quickly scan through the clusters and identify broadly what they contain. Some clusters are too mixed to be useful, but other clusters will be mostly comprised of one tissue type.
+
+4. Upload clusters to SortIT for cleaning 
+Clusters which are mostly of one tissue type but have some incorrect patches inside can be uploaded to SortIT and quickly filtered. 
+Multiple users can give annotations, which should allow for better ground truth labels.
+
+---
+
+## Development
 
 1. **Clone the repository**  
 2. **Install the required packages** (not necessary for docker)
@@ -94,7 +210,7 @@ python manage.py runserver 0.0.0.0:8000
 ```
 
 
-### Docker
+### Docker Compose
 
 ```bash
 # Clone repo
@@ -127,19 +243,9 @@ When using docker, all commands must be run inside the container. For all python
 
 You may have to prefix all docker commands with `sudo` depending on your system setup. Please refer to [Docker documentation](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user) for details.
 
-### Docker image from ghcr
-
-A prebuilt image is published to GitHub Container Registry automatically on every push to `main` (see `.github/workflows/docker-publish.yml`):
-
-```bash
-docker pull ghcr.io/fukuokalab/sortit:latest
-```
-
-Run it the same way as a locally built image — copy `.env.example` to `.env` and use `docker compose up -d` (the compose file builds from source, which is equivalent).
-
 ---
 
-## Env files
+### Env files
 
 Copy `.env.example` to `.env` and edit:
 
@@ -162,7 +268,7 @@ SQL_PORT=5432
 
 All variables are listed in `.env.example`.
 
-## Development Server  
+### Development Server  
 
 If using the docker version with docker-compose, skip to the next section.
 
@@ -196,81 +302,8 @@ If you see the login page, the server is running correctly.
 > [!NOTE]
 > For production deployment, use `docker compose up` (see Docker section above) or set up Gunicorn behind a reverse proxy such as nginx. Set `DEBUG=False` and a strong `SECRET_KEY` in your `.env` file.
 
----
 
-## Using SortIT
-
-1. Creating a Project
-After setting up the administrator account (`createsuperuser`) and logging in for the first time, the app will direct to the "Add project" page. 
-Fill out the fields (description fields are always optional), and click save. Remember to come back to add users to this project, once users are registered.
-
-2. Creating an Image Set
-On the left side of the window, click "Add" next to "Image sets". Fill out the name, add it under the project created in step one, and create labels for this image set. Labels can be created by using the link on the sidebar, or by clicking the green + mark on this page.
-
-3. Uploading Images
-Once the image set is created, click "View Site" at the top of the page.
-Select your project, then click "Upload" for the image set you would like to upload images for.
-Click on `Folders` or `Files` to open a file selection window, or drag and drop your tiles. 
-Click "Upload" to begin processing your files.
-
-4. Sorting Image Sets
-For an imageset with one label, you can upload patches, then click on patches which do not belong. Annotations will be saved per-image, per-user.
-
-5. Exporting Labels
-For an individual image set, click "Export CSV" to get a spreadsheet of images and labels for each user. At the project level, the same button downloads a single CSV with one row per image *per image set* — an `imageset` column shows which set each row belongs to (an image in two image sets appears in two rows).
-
-Staff also have a dedicated **download page** (the "Download" link in the navbar): filter a table of (project, image set, annotator) combinations that have data, tick the rows you want, and download. Selections spanning several projects come as a zip with one CSV per project; a single project is one combined CSV. It can also export a zip of the image files (under their original names) or a whole-app archive (per-project image folders or per-project CSVs).
-
-> [!IMPORTANT]
-> Please note that this app does not create patches/tiles from WSI. You must do this separately, then you can upload the patches to this page for labeling.
-
----
-
-## Tiling WSI with QuPath
-
-Here is a code snippet which should be able to export patches from QuPath (tested on QuPath v0.5)
-
-```groovy
-// Author: Tom Bisson
-// Affiliation: Institute of Pathology, Charité-Universitätsmedizin Berlin, Berlin, Germany
-// Date: January 17, 2024
-// Instructions: First higlight the area of tissue that should be exported with an annotation tool
-
-int patch_size = 224
-def image_extension = ".png"
-def image_data = getCurrentImageData()
-
-def out_path = "INSERT PATH HERE e.g. C:\\Users\\example\\Documents\\images for windows"
-
-tile_exporter = new TileExporter(image_data)
-tile_exporter.imageExtension(image_extension)
-tile_exporter.tileSize(patch_size)
-tile_exporter.annotatedTilesOnly(true)
-tile_exporter.writeTiles(out_path)
-```
-
----
-
-## MIXTURE Method
-
-Similar to the method described in the [MIXTURE paper (W. Uegami et al 2022)](https://www.nature.com/articles/s41379-022-01025-7), one way to use this app is as follows:
-
-1. Extract patch features using a feature extraction model.
-Pretrained feature extractors are avaiable from pytorch `timm` and various foundation models are now becoming popular.
-
-2. Cluster the patch features
-Use a clustering library like [scikit-learn](https://scikit-learn.org/stable/modules/clustering.html#clustering) to cluster the patches by their feature embeddings. KMeans is fast and typically does a good enough job with `n_clusters = 50`.
-
-3. Medical experts can identify clusters
-Trained experts can quickly scan through the clusters and identify broadly what they contain. Some clusters are too mixed to be useful, but other clusters will be mostly comprised of one tissue type.
-
-4. Upload clusters to SortIT for cleaning 
-Clusters which are mostly of one tissue type but have some incorrect patches inside can be uploaded to SortIT and quickly filtered. 
-Multiple users can give annotations, which should allow for better ground truth labels.
-
----
-
-## Basic Configuration  
+### Basic Configuration  
 
 All global settings live in `project/settings.py`.  
 
@@ -284,7 +317,7 @@ Typical things you might edit:
 
 ---
 
-## Data Model
+### Data Model
 
 | Model | Relationships |
 |-------|--------------|
@@ -305,7 +338,7 @@ Annotation ──1:1── Label (nullable)
 
 ---
 
-## File Structure & Key Files  
+### File Structure & Key Files  
 
 **Top‑level files**
 
@@ -381,7 +414,7 @@ Annotation ──1:1── Label (nullable)
 
 ---
 
-## Scripts (`scripts/`)
+### Scripts (`scripts/`)
 
 | Script | Purpose |
 |--------|---------|
@@ -391,7 +424,7 @@ Annotation ──1:1── Label (nullable)
 
 ---
 
-## Management Commands
+### Management Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -402,7 +435,7 @@ CSV output includes the image ID in the first column so it is easy to join acros
 
 ---
 
-## Adding Features  
+### Adding Features  
 
 Below are common feature ideas and the files you’ll touch to add them.
 
@@ -434,7 +467,7 @@ If you add new features, create a corresponding test.
 
 ---
 
-## Production Deployment
+### Production Deployment
 
 The Docker image runs Django + Gunicorn and is suitable for a LAN-hosted research tool out of the box. For internet-facing deployment, you need to bring your own reverse proxy and hardened configuration:
 
@@ -464,7 +497,7 @@ If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 
 ---
 
-## Troubleshooting  
+### Troubleshooting  
 
 | Symptom | Possible Cause | Quick Fix |
 |---------|----------------|-----------|
@@ -476,11 +509,17 @@ If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 | Static files not loading | `STATIC_URL` misconfigured | Check `STATIC_URL` in settings |
 
 
-### Assumptions
+#### Assumptions
 
 - Uploaded files are renamed automatically (`<name>___<imageset_id>___<timestamp>.jpg`) and identical content is stored only once (deduped by SHA-256), so filenames do not need to be unique.
 
 ---
+
+## Testing
+
+The above instructions were tested on Ubuntu-26.04, Ubuntu-24.04, and WSL-Ubuntu-24.04.
+
+Example input and output data is provided under `docs/data/images` and `docs/data/csv` respectively.
 
 ## LICENCE
 MIT

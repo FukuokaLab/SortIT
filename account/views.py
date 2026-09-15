@@ -1,15 +1,16 @@
 # Create your views here.
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.auth.views import (
     LoginView,
     LogoutView,
-    PasswordChangeView,
     PasswordChangeDoneView,
+    PasswordChangeView,
 )
-from django.views import generic
-from django.contrib.auth.mixins import UserPassesTestMixin
-from .forms import LoginForm, SignupForm, UserUpdateForm, MyPasswordChangeForm, User
 from django.shortcuts import redirect, resolve_url
 from django.urls import reverse_lazy
+from django.views import generic
+
+from .forms import LoginForm, MyPasswordChangeForm, SignupForm, User, UserUpdateForm
 
 
 class Login(LoginView):

@@ -186,6 +186,7 @@ class ModelTestCase(TestCase):
         prefs = UserPreferences.objects.get(user=self.user)
         self.assertEqual(str(prefs), "testuser")
 
+
 class ViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -465,6 +466,7 @@ class ViewTestCase(TestCase):
 
     def test_show_montage_missing_returns_empty_200(self):
         import tempfile
+
         from django.test.utils import override_settings
 
         with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
@@ -495,7 +497,9 @@ class ViewTestCase(TestCase):
         label2 = Label.objects.create(name="Second", project=self.project)
         self.imageset.labels.add(label2)
         other_set = ImageSet.objects.create(name="Other Set", project=self.project)
-        foreign_image = Image.objects.create(filepath="/tmp/foreign.png", name="foreign.png")
+        foreign_image = Image.objects.create(
+            filepath="/tmp/foreign.png", name="foreign.png"
+        )
         foreign_image.imageset.add(other_set)
 
         response = self.client.get(
@@ -517,6 +521,7 @@ class ViewTestCase(TestCase):
         prefs = UserPreferences.objects.get(user=self.user)
         self.assertEqual(prefs.sort_nimgs, 8)
         self.assertEqual(prefs.sort_imsize, 444)
+
 
 class URLTestCase(TestCase):
     def test_url_resolution(self):
@@ -850,7 +855,9 @@ class UploadDedupTestCase(TestCase):
         self.media_tmp = tempfile.mkdtemp()
         self.client.force_login(self.user)
 
-        r = self._upload(self.set_a, [("secret_slide.png", self._img_bytes((10, 20, 30)))])
+        r = self._upload(
+            self.set_a, [("secret_slide.png", self._img_bytes((10, 20, 30)))]
+        )
         self.assertEqual(r.status_code, 302)
 
         image = Image.objects.get()
@@ -865,7 +872,6 @@ class UploadDedupTestCase(TestCase):
         resp = self.client.get(reverse("sortIT:show_img", args=[image.id]))
         self.assertIn("inline", resp["Content-Disposition"])
         self.assertIn("secret_slide.png", resp["Content-Disposition"])
-
 
 
 class DownloadPageTestCase(TestCase):
@@ -918,7 +924,7 @@ class DownloadPageTestCase(TestCase):
         self.assertContains(resp, self.row_a)
         # options are server-rendered so the native multi-selects stay
         # usable even if the Tom Select library fails to load
-        self.assertContains(resp, '<option value="%s">' % self.project.id)
+        self.assertContains(resp, f'<option value="{self.project.id}">')
         self.assertContains(resp, "form-select")
         # the library must load before the inline script that uses it
         self.assertLess(
@@ -962,10 +968,12 @@ class DownloadPageTestCase(TestCase):
             for name in zf.namelist():
                 rows = list(csv.reader(io.StringIO(zf.read(name).decode())))
                 self.assertEqual(rows[0][:3], ["Image_ID", "imageset", "filename"])
-            proj_rows = list(csv.reader(io.StringIO(zf.read(zf.namelist()[0]).decode())))
+            proj_rows = list(
+                csv.reader(io.StringIO(zf.read(zf.namelist()[0]).decode()))
+            )
             self.assertEqual(proj_rows[0][3:], ["alice", "downstaff"])
             # the other project's CSV only has alice's column
-            other = [n for n in zf.namelist() if "Project Two" in n][0]
+            other = next(n for n in zf.namelist() if "Project Two" in n)
             other_rows = list(csv.reader(io.StringIO(zf.read(other).decode())))
             self.assertEqual(other_rows[0][3:], ["alice"])
 
@@ -981,9 +989,7 @@ class DownloadPageTestCase(TestCase):
             )
 
     def test_no_rows_selected_is_400(self):
-        resp = self.client.post(
-            reverse("sortIT:download"), {"action": "download_csv"}
-        )
+        resp = self.client.post(reverse("sortIT:download"), {"action": "download_csv"})
         self.assertEqual(resp.status_code, 400)
 
     def test_download_all_csvs_one_per_project(self):
@@ -1048,7 +1054,9 @@ class BackButtonTestCase(TestCase):
         self.assertTrue(Annotation.objects.filter(image=image, user=self.user).exists())
 
         resp = self.client.post(reverse("sortIT:undo", args=[self.imageset.id]))
-        self.assertFalse(Annotation.objects.filter(image=image, user=self.user).exists())
+        self.assertFalse(
+            Annotation.objects.filter(image=image, user=self.user).exists()
+        )
         self.assertEqual(
             resp["Location"],
             f"{reverse('sortIT:label', args=[self.imageset.id])}?image={image.id}",
@@ -1090,7 +1098,9 @@ class BackButtonTestCase(TestCase):
     def test_undo_without_history_lands_in_flow(self):
         resp = self.client.post(reverse("sortIT:undo", args=[self.imageset.id]))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], reverse("sortIT:label", args=[self.imageset.id]))
+        self.assertEqual(
+            resp["Location"], reverse("sortIT:label", args=[self.imageset.id])
+        )
 
     def test_undo_chains_through_session(self):
         img1 = Image.objects.create(filepath="/tmp/chain1.png", name="chain1.png")
@@ -1123,6 +1133,7 @@ class BackButtonTestCase(TestCase):
             f"{reverse('sortIT:label', args=[self.imageset.id])}?image={img1.id}",
         )
         self.assertFalse(Annotation.objects.filter(user=self.user).exists())
+
 
 class SharedImageTestCase(TestCase):
     """Option 2: an image keeps an independent decision in each imageset."""
@@ -1178,7 +1189,9 @@ class SharedImageTestCase(TestCase):
     def test_same_image_gets_own_row_per_imageset(self):
         self.label_x(self.cat, self.set_a)
         self.label_x(self.cat, self.set_b)
-        self.assertEqual(Annotation.objects.filter(image=self.x, user=self.user).count(), 2)
+        self.assertEqual(
+            Annotation.objects.filter(image=self.x, user=self.user).count(), 2
+        )
 
     def test_conflicting_labels_coexist_per_set(self):
         self.label_x(self.cat, self.set_a)
@@ -1206,6 +1219,7 @@ class SharedImageTestCase(TestCase):
         self.assertNotIn("dog", csv_a)
         self.assertIn("x.png,dog", csv_b)
         self.assertNotIn("cat", csv_b)
+
 
 class TwoUserFinishTestCase(TestCase):
     """Regression: user B must not be sent to finish just because user A
@@ -1279,6 +1293,7 @@ class TwoUserFinishTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, "You've finished")
 
+
 class SetCrossContaminationTestCase(TestCase):
     """User A labeled a multilabel set (Pos+Neg), then opens a second set
     that only has "Pos" (sort mode) with the same images."""
@@ -1341,9 +1356,7 @@ class SetCrossContaminationTestCase(TestCase):
                 },
             )
         self.assertEqual(
-            Annotation.objects.filter(
-                user=self.user_a, imageset=self.set1
-            ).count(),
+            Annotation.objects.filter(user=self.user_a, imageset=self.set1).count(),
             4,
         )
         # No set-2 annotations for A

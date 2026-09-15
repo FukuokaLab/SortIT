@@ -31,4 +31,4 @@ project-includes = [
 ]
 
 [tool.ruff]
-lint.ignore = ["RUF012"]
+lint.ignore = ["RUF012", "N999"]
