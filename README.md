@@ -519,6 +519,8 @@ If using PostgreSQL, increase `--workers` to `(2 * CPU cores) + 1`.
 
 The above instructions were tested on Ubuntu-26.04, Ubuntu-24.04, and WSL-Ubuntu-24.04.
 
+UI tested on Windows, on Firefox and Chrome browsers.
+
 Example input and output data is provided under `docs/data/images` and `docs/data/csv` respectively.
 
 ## LICENCE

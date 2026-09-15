@@ -1,0 +1,13 @@
+Image_ID,imageset,filename,Andy,Bonny
+1,Image Set 1,case1_x34500_y66000_w500_h500.jpg,Negative,Positive
+1,Image Set 2,case1_x34500_y66000_w500_h500.jpg,,Positive
+2,Image Set 1,case1_x35000_y64000_w500_h500.jpg,Positive,Negative
+2,Image Set 2,case1_x35000_y64000_w500_h500.jpg,,Positive
+3,Image Set 1,case2_x35000_y67000_w500_h500.jpg,Positive,Negative
+3,Image Set 2,case2_x35000_y67000_w500_h500.jpg,,Positive
+4,Image Set 1,case2_x35000_y73000_w500_h500.jpg,Negative,Negative
+4,Image Set 2,case2_x35000_y73000_w500_h500.jpg,,Positive
+5,Image Set 1,case3_x35000_y73500_w500_h500.jpg,Negative,Positive
+5,Image Set 2,case3_x35000_y73500_w500_h500.jpg,,Positive
+6,Image Set 1,case3_x35500_y59000_w500_h500.jpg,Positive,Positive
+

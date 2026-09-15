@@ -11,12 +11,11 @@ wheels/
 .python-version
 .env
 media/**
-data
+./data/**
 logs/*.log
 *.sqlite3
 *.sqlite3.bak
 tmp
 /.conductor
-*.csv
 /staticfiles
 .todo.md
